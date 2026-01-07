@@ -96,6 +96,7 @@ export const useLineStore = defineStore('line', () => {
     isInitialized,
     isLoggedIn,
     user,
+    liffInstance,
     error,
 
     // Getters

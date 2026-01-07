@@ -75,6 +75,8 @@ export default defineNuxtConfig({
   routeRules: {
     // LIFF 頁面不使用 SSR
     '/liff/**': { ssr: false },
+    // Life 行李寄送頁面不使用 SSR
+    '/life/**': { ssr: false },
   },
 
   compatibilityDate: '2025-08-01',
