@@ -24,10 +24,14 @@ export function useBackstationApi() {
     lineUserId?: string
     displayName?: string
     email?: string
+    // 平台訂單資訊
+    platformType?: string // 'trip' 或 'klook'
+    platformOrderId?: string // trip_orders.id 或 klook_orders.id
   }
 
   interface CreateOrderResponse {
     id: string
+    voucherId: string
     category: string
     lineName: string
     phone: string
@@ -79,8 +83,80 @@ export function useBackstationApi() {
     }
   }
 
+  interface TripOrderResponse {
+    id: number
+    orderNumber: string
+    productId: number
+    status: number
+    statusText: string
+    departureDate: string
+    quantity: number
+    useQuantity: number
+    cancelQuantity: number
+    availableQuantity: number
+    contacts: {
+      name: string
+      phone: string
+    }
+    vouchers?: string
+    itemId?: string
+    sequenceId?: string
+    createdAt: string
+    updatedAt: string
+  }
+
+  interface KlookOrderResponse {
+    id: number
+    resellerReference: string
+    status: number
+    statusText: string
+    statusCode?: string
+    productId: number
+    departureDate: string
+    quantity: number
+    useQuantity: number
+    cancelQuantity: number
+    availableQuantity: number
+    contacts: {
+      name: string
+      phone: string
+    }
+    unitItems?: any
+    notes?: string
+    optionId?: string
+    uuid?: string
+    createdAt: string
+    updatedAt: string
+  }
+
+  async function queryTripOrder(voucherCode: string): Promise<TripOrderResponse> {
+    try {
+      // 透過 LIFF server API 代理到 Backstation (使用憑證號碼查詢)
+      const response = await $fetch<TripOrderResponse>(`/api/platform-orders/trip/${voucherCode}`)
+      return response
+    }
+    catch (error) {
+      console.error('Failed to query Trip order:', error)
+      throw new Error('查詢 Trip 訂單失敗')
+    }
+  }
+
+  async function queryKlookOrder(resellerReference: string): Promise<KlookOrderResponse> {
+    try {
+      // 透過 LIFF server API 代理到 Backstation
+      const response = await $fetch<KlookOrderResponse>(`/api/platform-orders/klook/${resellerReference}`)
+      return response
+    }
+    catch (error) {
+      console.error('Failed to query Klook order:', error)
+      throw new Error('查詢 Klook 訂單失敗')
+    }
+  }
+
   return {
     fetchDeliveryPoints,
     createOrder,
+    queryTripOrder,
+    queryKlookOrder,
   }
 }

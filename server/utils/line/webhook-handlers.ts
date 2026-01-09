@@ -7,10 +7,11 @@ export async function handleWebhookEvent(client: Client, event: WebhookEvent) {
     case 'follow':
       return handleFollowEvent(client, event)
     case 'unfollow':
-      console.log('User unfollowed:', event.source.userId)
+      // User unfollowed - no action needed
       break
     default:
-      console.log('Unhandled event type:', event.type)
+      // Unhandled event type - no action needed
+      break
   }
 }
 

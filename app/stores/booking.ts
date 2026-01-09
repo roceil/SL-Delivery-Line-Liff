@@ -31,7 +31,13 @@ export const useBookingStore = defineStore('booking', () => {
   })
 
   // Actions
-  async function createOrder(orderData: Omit<BookingOrder, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'qrCode'>) {
+  async function createOrder(
+    orderData: Omit<BookingOrder, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'qrCode'> & {
+      platformType?: string
+      platformOrderId?: string
+      platformPhone?: string
+    },
+  ) {
     try {
       isLoading.value = true
       error.value = null
@@ -49,12 +55,16 @@ export const useBookingStore = defineStore('booking', () => {
         pickupLocationId: orderData.pickupLocation.id.toString(),
         deliveryLocationId: orderData.deliveryLocation.id.toString(),
         lineName: orderData.userName,
-        phone: profileStore.phoneNumber || undefined,
+        // 優先使用平台訂單的電話，若無則使用個人資料的電話
+        phone: orderData.platformPhone || profileStore.phoneNumber || undefined,
         notes: orderData.specialNote || undefined,
         // LINE 使用者資料（用於建立/更新 users 表）
         lineUserId: lineStore.userId || undefined,
         displayName: lineStore.displayName || undefined,
         email: profileStore.email || undefined,
+        // 平台訂單資訊
+        platformType: orderData.platformType || undefined,
+        platformOrderId: orderData.platformOrderId || undefined,
       }
 
       // 呼叫 Backstation API 建立訂單
@@ -63,6 +73,7 @@ export const useBookingStore = defineStore('booking', () => {
       // 轉換 API 回應為本地格式
       const newOrder: BookingOrder = {
         id: apiResponse.id,
+        voucherId: apiResponse.voucherId,
         userId: orderData.userId,
         userName: apiResponse.lineName,
         status: 'pending',
@@ -86,8 +97,10 @@ export const useBookingStore = defineStore('booking', () => {
         updatedAt: apiResponse.updatedAt,
       }
 
-      // 生成 QR Code
-      newOrder.qrCode = await generateOrderQRCode(newOrder.id)
+      // 生成 QR Code (使用 voucherId)
+      if (newOrder.voucherId) {
+        newOrder.qrCode = await generateOrderQRCode(newOrder.voucherId)
+      }
 
       orders.value.push(newOrder)
       currentOrder.value = newOrder
@@ -146,7 +159,9 @@ export const useBookingStore = defineStore('booking', () => {
       if (qrData.type !== 'booking_order')
         throw new Error('QR Code 格式不正確')
 
-      const order = getOrderById.value(qrData.orderId)
+      // 使用 voucherId 查詢訂單 ID
+      const response = await $fetch<{ id: string }>(`/api/orders/by-voucher/${qrData.voucherId}`)
+      const order = getOrderById.value(response.id)
 
       if (!order)
         throw new Error('找不到對應的訂單')
@@ -178,6 +193,7 @@ export const useBookingStore = defineStore('booking', () => {
       // 從 API 載入訂單列表
       const response = await $fetch<{
         id: string
+        voucherId: string
         userId: number
         category: string
         lineName: string
@@ -210,6 +226,7 @@ export const useBookingStore = defineStore('booking', () => {
         response.map(async (apiOrder) => {
           const order: BookingOrder = {
             id: apiOrder.id,
+            voucherId: apiOrder.voucherId,
             userId: lineStore.userId || '',
             userName: apiOrder.lineName,
             status: apiOrder.status as BookingStatus,
@@ -233,8 +250,10 @@ export const useBookingStore = defineStore('booking', () => {
             updatedAt: apiOrder.updatedAt,
           }
 
-          // 生成 QR Code
-          order.qrCode = await generateOrderQRCode(order.id)
+          // 生成 QR Code (使用 voucherId)
+          if (order.voucherId) {
+            order.qrCode = await generateOrderQRCode(order.voucherId)
+          }
 
           return order
         }),
@@ -264,6 +283,7 @@ export const useBookingStore = defineStore('booking', () => {
       // 從 API 載入單一訂單
       const apiOrder = await $fetch<{
         id: string
+        voucherId: string
         category: string
         lineName: string
         phone: string
@@ -293,6 +313,7 @@ export const useBookingStore = defineStore('booking', () => {
       // 轉換為本地格式
       const order: BookingOrder = {
         id: apiOrder.id,
+        voucherId: apiOrder.voucherId,
         userId: lineStore.userId || '',
         userName: apiOrder.lineName,
         status: apiOrder.status as BookingStatus,
@@ -316,8 +337,10 @@ export const useBookingStore = defineStore('booking', () => {
         updatedAt: apiOrder.updatedAt,
       }
 
-      // 生成 QR Code
-      order.qrCode = await generateOrderQRCode(order.id)
+      // 生成 QR Code (使用 voucherId)
+      if (order.voucherId) {
+        order.qrCode = await generateOrderQRCode(order.voucherId)
+      }
 
       // 更新本地快取
       const existingIndex = orders.value.findIndex(o => o.id === orderId)

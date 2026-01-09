@@ -77,18 +77,12 @@ export async function setupRichMenu(imagePath: string) {
   const richMenu = createRichMenuTemplate()
   const richMenuId = await client.createRichMenu(richMenu)
 
-  console.log('Rich Menu created:', richMenuId)
-
   // 2. 上傳圖片
   const imageBuffer = fs.readFileSync(imagePath)
   await client.setRichMenuImage(richMenuId, imageBuffer, 'image/png')
 
-  console.log('Rich Menu image uploaded')
-
   // 3. 設為預設選單
   await client.setDefaultRichMenu(richMenuId)
-
-  console.log('Rich Menu set as default')
 
   return richMenuId
 }

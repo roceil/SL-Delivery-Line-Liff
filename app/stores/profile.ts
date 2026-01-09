@@ -45,7 +45,6 @@ export const useProfileStore = defineStore('profile', () => {
     catch (err: any) {
       // 如果使用者不存在（404），不顯示錯誤
       if (err?.statusCode === 404) {
-        console.log('使用者尚未建立，等待第一次建立訂單')
         // 設定基本資料（來自 LINE）
         profile.value = {
           userId: lineStore.userId,

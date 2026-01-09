@@ -64,3 +64,39 @@ Pinia stores 使用 Composition API 模式，採用 `defineStore(() => {})` 語�
 
 - 回答問題時，請確保使用繁體中文進行回答。
 - 生成程式碼時，如果遇到 if else 的判斷，請使用 early return 的方式來減少巢狀層級。
+
+## 平台訂單整合架構
+
+### Backstation API 端點
+
+已實作以下 API 端點用於查詢平台訂單狀態與可用數量：
+
+1. **查詢 Trip 訂單 API**
+   - 路徑: `GET /api/platform-orders/trip/:voucherCode`
+   - 參數: `voucherCode` (Trip 憑證號碼，對應 `trip_orders.vouchers` 欄位)
+   - 功能: 使用憑證號碼查詢並驗證 Trip 訂單狀態，回傳訂單詳情與剩餘可用數量
+   - 狀態驗證: 1=新訂待確認, 2=新訂已確認, 4=部份取消, 6=已取物品, 7=部份使用
+
+2. **查詢 Klook 訂單 API**
+   - 路徑: `GET /api/platform-orders/klook/:resellerReference`
+   - 功能: 查詢並驗證 Klook 訂單狀態，回傳訂單詳情與剩餘可用數量
+   - 狀態驗證: 1=待確認(ON_HOLD), 2=已確認(CONFIRMED)
+
+### LIFF 整合流程
+
+1. 用戶在「登錄訂單」頁面掃描平台訂單 QR Code
+2. **QR Code 格式支援**：
+   - JSON 格式（系統內部使用）：包含 `type`、`platform`、`orderIdentifier` 等欄位
+   - 純文字格式（平台原生 QR Code）：直接是憑證號碼或訂單編號
+3. **自動平台偵測**：當掃描純文字 QR Code 時
+   - 先嘗試查詢 Trip 訂單（使用 `vouchers` 欄位）
+   - 若 Trip 查詢失敗，再嘗試查詢 Klook 訂單（使用 `reseller_reference` 欄位）
+   - 若兩個平台都查詢失敗，顯示錯誤訊息
+4. LIFF 透過代理 API 向 Backstation 查詢訂單
+5. Backstation 驗證訂單狀態與可用數量
+6. 驗證通過後導向預約頁面，顯示平台訂單資訊
+7. 用戶填寫配送資訊後提交
+8. **建立訂單記錄**（三層架構）：
+   - 建立 `net_orders` 記錄，關聯到 `trip_orders` 或 `klook_orders`
+   - 建立 `orders` 記錄，`platform_type=3` (Net)，`platform_id` 指向 `net_orders.id`
+   - 完成三層訂單關聯：`orders` → `net_orders` → `trip_orders/klook_orders`

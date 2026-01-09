@@ -13,6 +13,11 @@ const phoneNumber = ref('')
 const email = ref('')
 const error = ref('')
 
+// 載入個人資料
+onMounted(async () => {
+  await profileStore.initProfile()
+})
+
 // 初始化表單
 watch(profile, (newProfile) => {
   if (newProfile) {

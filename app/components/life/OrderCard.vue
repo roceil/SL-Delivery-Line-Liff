@@ -8,6 +8,21 @@ interface Props {
 const props = defineProps<Props>()
 
 const shortOrderId = computed(() => props.order.id.substring(0, 8))
+
+const dateTimeDisplay = computed(() => {
+  const date = props.order.bookingDate
+  const time = props.order.pickupTime
+
+  // 如果沒有時間或時間是 '-'，只顯示日期
+  if (!time || time === '-') {
+    return date
+  }
+
+  // 格式化時間為 HH:MM（移除秒數）
+  const formattedTime = time.substring(0, 5)
+
+  return `${date} ${formattedTime}`
+})
 </script>
 
 <template>
@@ -27,7 +42,7 @@ const shortOrderId = computed(() => props.order.id.substring(0, 8))
 
     <div class="mb-2">
       <div class="text-sm text-gray-600">
-        {{ order.bookingDate }} {{ order.pickupTime }}
+        {{ dateTimeDisplay }}
       </div>
       <div class="text-sm text-gray-500">
         行李 {{ order.luggageCount }} 件

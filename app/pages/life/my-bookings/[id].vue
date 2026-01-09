@@ -46,7 +46,16 @@ async function cancelOrder() {
 function formatDateTime(dateString: string, timeString: string) {
   const date = new Date(dateString)
   const dayOfWeek = ['日', '一', '二', '三', '四', '五', '六'][date.getDay()]
-  return `${dateString} (${dayOfWeek}) ${timeString}`
+
+  // 如果沒有時間或時間是 '-'，只顯示日期
+  if (!timeString || timeString === '-') {
+    return `${dateString} (${dayOfWeek})`
+  }
+
+  // 格式化時間為 HH:MM（移除秒數）
+  const formattedTime = timeString.substring(0, 5)
+
+  return `${dateString} (${dayOfWeek}) ${formattedTime}`
 }
 </script>
 
@@ -164,9 +173,9 @@ function formatDateTime(dateString: string, timeString: string) {
 
     <!-- QR Code -->
     <LifeQRCodeDisplay
-      v-if="order.qrCode"
+      v-if="order.qrCode && order.voucherId"
       :qr-code="order.qrCode"
-      :order-id="order.id"
+      :voucher-id="order.voucherId"
     />
 
     <!-- 操作按鈕 -->

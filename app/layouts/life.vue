@@ -11,7 +11,7 @@ const initError = ref('')
 const navItems = [
   { name: '首頁', path: '/life', icon: 'carbon:home' },
   { name: '預約', path: '/life/booking', icon: 'carbon:calendar' },
-  { name: '查詢', path: '/life/query', icon: 'carbon:search' },
+  { name: '登錄訂單', path: '/life/query', icon: 'carbon:search' },
   { name: '我的訂單', path: '/life/my-bookings', icon: 'carbon:receipt' },
   { name: '個人資料', path: '/life/profile', icon: 'carbon:user' },
 ]
@@ -51,7 +51,7 @@ onMounted(async () => {
 
     <!-- 已載入狀態 -->
     <template v-else>
-      <div class="p-4 pt-0">
+      <div class="p-4">
         <h1
           v-if="title"
           class="mb-4 text-2xl font-bold text-gray-800"
@@ -66,7 +66,7 @@ onMounted(async () => {
       <!-- Fixed Footer Navigation -->
       <nav
         class="
-          fixed right-0 bottom-1 left-0 border-t border-gray-200 bg-white
+          fixed right-0 bottom-0 left-0 border-t border-gray-200 bg-white
           shadow-lg
         "
       >
@@ -76,7 +76,7 @@ onMounted(async () => {
             :key="item.path"
             :to="item.path"
             class="
-              flex flex-1 flex-col items-center justify-center gap-1 px-3 py-2
+              flex flex-1 flex-col items-center justify-center gap-1 px-2 py-3
               ring-1 transition-colors duration-200
             "
             :class="[

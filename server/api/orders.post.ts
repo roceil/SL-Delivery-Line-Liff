@@ -11,6 +11,9 @@ interface CreateOrderRequest {
   lineUserId?: string
   displayName?: string
   email?: string
+  // 平台訂單資訊
+  platformType?: string // 'trip' 或 'klook'
+  platformOrderId?: string // trip_orders.id 或 klook_orders.id
 }
 
 interface CreateOrderResponse {

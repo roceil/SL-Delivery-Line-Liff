@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { Location } from '~/types/booking'
+import type { KlookOrder, Location, PlatformType, TripOrder } from '~/types/booking'
 
 definePageMeta({
   layout: 'life',
@@ -7,10 +7,19 @@ definePageMeta({
 })
 
 const router = useRouter()
+const route = useRoute()
 const lineStore = useLineStore()
 const bookingStore = useBookingStore()
 const locationsStore = useLocationsStore()
 const { validateBookingDate, validateTime } = useValidation()
+const { queryPlatformOrder } = useQRCode()
+
+// 平台訂單資訊
+const platformType = ref<PlatformType | null>(null)
+const platformOrderId = ref<string | null>(null)
+const platformOrderIdentifier = ref<string | null>(null)
+const platformOrder = ref<TripOrder | KlookOrder | null>(null)
+const isLoadingPlatformOrder = ref(false)
 
 // Form data
 const bookingDate = ref('')
@@ -23,9 +32,40 @@ const specialNote = ref('')
 const isSubmitting = ref(false)
 const formError = ref('')
 
-// 載入配送地點
+// 載入配送地點與平台訂單
 onMounted(async () => {
   await locationsStore.fetchLocations()
+
+  // 檢查是否有平台訂單參數
+  const queryPlatform = route.query.platform as string | undefined
+  const queryOrderId = route.query.orderId as string | undefined
+  const queryOrderIdentifier = route.query.orderIdentifier as string | undefined
+
+  if (queryPlatform && queryOrderId && queryOrderIdentifier) {
+    platformType.value = queryPlatform as PlatformType
+    platformOrderId.value = queryOrderId
+    platformOrderIdentifier.value = queryOrderIdentifier
+
+    // 載入平台訂單詳情
+    try {
+      isLoadingPlatformOrder.value = true
+      platformOrder.value = await queryPlatformOrder(
+        queryPlatform as 'trip' | 'klook',
+        queryOrderIdentifier,
+      )
+
+      // 自動填入出發日期
+      if (platformOrder.value) {
+        bookingDate.value = platformOrder.value.departureDate
+      }
+    }
+    catch (err) {
+      formError.value = err instanceof Error ? err.message : '載入平台訂單失敗'
+    }
+    finally {
+      isLoadingPlatformOrder.value = false
+    }
+  }
 })
 
 // 設定最小日期為今天
@@ -102,13 +142,18 @@ async function submitBooking() {
       pickupLocation: pickupLocation.value,
       deliveryLocation: deliveryLocation.value,
       specialNote: specialNote.value || undefined,
+      // 平台訂單資訊
+      platformType: platformType.value || undefined,
+      platformOrderId: platformOrderId.value || undefined,
+      // 平台訂單的聯絡電話（優先使用平台訂單的電話）
+      platformPhone: platformOrder.value?.contacts?.phone || undefined,
     })
 
     // 導向訂單詳細頁
     router.push(`/life/my-bookings/${newOrder.id}`)
   }
   catch (err) {
-    formError.value = err instanceof Error ? err.message : '建立訂單失敗，請稍後再試'
+    formError.value = err instanceof Error ? err.message : '建立訂單失敗,請稍後再試'
   }
   finally {
     isSubmitting.value = false
@@ -121,6 +166,44 @@ async function submitBooking() {
     class="space-y-4"
     @submit.prevent="submitBooking"
   >
+    <!-- 載入平台訂單中 -->
+    <div
+      v-if="isLoadingPlatformOrder"
+      class="rounded-lg bg-blue-50 p-4 text-sm text-blue-600"
+    >
+      載入平台訂單資訊中...
+    </div>
+
+    <!-- 平台訂單資訊卡片 -->
+    <div
+      v-if="platformOrder && platformType"
+      class="rounded-lg bg-green-50 p-4"
+    >
+      <h3 class="mb-2 font-semibold text-green-800">
+        {{ platformType === 'trip' ? 'Trip.com' : 'Klook' }} 訂單資訊
+      </h3>
+      <div class="space-y-1 text-sm text-green-700">
+        <p v-if="platformType === 'trip' && 'orderNumber' in platformOrder">
+          <span class="font-medium">訂單編號:</span> {{ platformOrder.orderNumber }}
+        </p>
+        <p v-if="platformType === 'klook' && 'resellerReference' in platformOrder">
+          <span class="font-medium">訂單編號:</span> {{ platformOrder.resellerReference }}
+        </p>
+        <p>
+          <span class="font-medium">出發日期:</span> {{ platformOrder.departureDate }}
+        </p>
+        <p>
+          <span class="font-medium">數量:</span> {{ platformOrder.quantity }}
+        </p>
+        <p v-if="platformOrder.contacts">
+          <span class="font-medium">聯絡人:</span> {{ platformOrder.contacts.name }} / {{ platformOrder.contacts.phone }}
+        </p>
+        <p v-if="platformType === 'trip' && 'vouchers' in platformOrder && platformOrder.vouchers">
+          <span class="font-medium">憑證:</span> {{ platformOrder.vouchers }}
+        </p>
+      </div>
+    </div>
+
     <!-- 錯誤提示 -->
     <div
       v-if="formError"
