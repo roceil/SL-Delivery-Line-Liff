@@ -10,7 +10,7 @@ const initError = ref('')
 // 導航項目
 const navItems = [
   { name: '首頁', path: '/life', icon: 'carbon:home' },
-  { name: '訂車', path: '/life/booking', icon: 'carbon:car' },
+  { name: '預約', path: '/life/booking', icon: 'carbon:calendar' },
   { name: '查詢', path: '/life/query', icon: 'carbon:search' },
   { name: '我的訂單', path: '/life/my-bookings', icon: 'carbon:receipt' },
   { name: '個人資料', path: '/life/profile', icon: 'carbon:user' },
@@ -77,7 +77,7 @@ onMounted(async () => {
             :to="item.path"
             class="
               flex flex-1 flex-col items-center justify-center gap-1 px-3 py-2
-              transition-colors duration-200 ring-1
+              ring-1 transition-colors duration-200
             "
             :class="[
               route.path === item.path || (item.path !== '/life' && route.path.startsWith(item.path))

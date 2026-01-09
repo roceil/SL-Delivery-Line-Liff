@@ -36,15 +36,54 @@ export const useBookingStore = defineStore('booking', () => {
       isLoading.value = true
       error.value = null
 
-      const { generateUUID } = useUUID()
+      const { createOrder: createOrderApi } = useBackstationApi()
       const { generateOrderQRCode } = useQRCode()
+      const lineStore = useLineStore()
+      const profileStore = useProfileStore()
 
+      // 準備 API 請求資料
+      const apiRequest = {
+        deliveryDate: orderData.bookingDate,
+        pickupTime: orderData.pickupTime,
+        luggageCount: orderData.luggageCount,
+        pickupLocationId: orderData.pickupLocation.id.toString(),
+        deliveryLocationId: orderData.deliveryLocation.id.toString(),
+        lineName: orderData.userName,
+        phone: profileStore.phoneNumber || undefined,
+        notes: orderData.specialNote || undefined,
+        // LINE 使用者資料（用於建立/更新 users 表）
+        lineUserId: lineStore.userId || undefined,
+        displayName: lineStore.displayName || undefined,
+        email: profileStore.email || undefined,
+      }
+
+      // 呼叫 Backstation API 建立訂單
+      const apiResponse = await createOrderApi(apiRequest)
+
+      // 轉換 API 回應為本地格式
       const newOrder: BookingOrder = {
-        ...orderData,
-        id: generateUUID(),
+        id: apiResponse.id,
+        userId: orderData.userId,
+        userName: apiResponse.lineName,
         status: 'pending',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        bookingDate: apiResponse.deliveryDate,
+        pickupTime: apiResponse.pickupTime,
+        luggageCount: apiResponse.luggageCount,
+        pickupLocation: {
+          id: Number.parseInt(apiResponse.pickupLocation.id, 10),
+          name: apiResponse.pickupLocation.name,
+          address: apiResponse.pickupLocation.address,
+          area: apiResponse.pickupLocation.area,
+        },
+        deliveryLocation: {
+          id: Number.parseInt(apiResponse.deliveryLocation.id, 10),
+          name: apiResponse.deliveryLocation.name,
+          address: apiResponse.deliveryLocation.address,
+          area: apiResponse.deliveryLocation.area,
+        },
+        specialNote: apiResponse.notes,
+        createdAt: apiResponse.createdAt,
+        updatedAt: apiResponse.updatedAt,
       }
 
       // 生成 QR Code
@@ -52,9 +91,6 @@ export const useBookingStore = defineStore('booking', () => {
 
       orders.value.push(newOrder)
       currentOrder.value = newOrder
-
-      // 持久化到 LocalStorage
-      await saveToLocalStorage()
 
       return newOrder
     }
@@ -82,8 +118,6 @@ export const useBookingStore = defineStore('booking', () => {
         ...updates,
         updatedAt: new Date().toISOString(),
       } as BookingOrder
-
-      await saveToLocalStorage()
 
       return orders.value[index]!
     }
@@ -129,52 +163,186 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  async function loadFromLocalStorage() {
+  async function loadOrders() {
     try {
+      isLoading.value = true
+      error.value = null
+
       const lineStore = useLineStore()
 
-      if (!lineStore.userId)
+      if (!lineStore.userId) {
+        orders.value = []
         return
-
-      const key = `booking_orders_${lineStore.userId}`
-      const stored = localStorage.getItem(key)
-
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        orders.value = parsed.orders || []
       }
+
+      // 從 API 載入訂單列表
+      const response = await $fetch<{
+        id: string
+        userId: number
+        category: string
+        lineName: string
+        phone: string
+        deliveryDate: string
+        pickupTime: string
+        luggageCount: number
+        status: string
+        pickupLocation: {
+          id: string
+          name: string
+          address: string
+          area: string
+        }
+        deliveryLocation: {
+          id: string
+          name: string
+          address: string
+          area: string
+        }
+        notes: string
+        createdAt: string
+        updatedAt: string
+      }[]>(`/api/orders?lineUserId=${lineStore.userId}`)
+
+      const { generateOrderQRCode } = useQRCode()
+
+      // 轉換為本地格式並生成 QR Code
+      orders.value = await Promise.all(
+        response.map(async (apiOrder) => {
+          const order: BookingOrder = {
+            id: apiOrder.id,
+            userId: lineStore.userId || '',
+            userName: apiOrder.lineName,
+            status: apiOrder.status as BookingStatus,
+            bookingDate: apiOrder.deliveryDate,
+            pickupTime: apiOrder.pickupTime,
+            luggageCount: apiOrder.luggageCount,
+            pickupLocation: {
+              id: Number.parseInt(apiOrder.pickupLocation.id, 10),
+              name: apiOrder.pickupLocation.name,
+              address: apiOrder.pickupLocation.address,
+              area: apiOrder.pickupLocation.area,
+            },
+            deliveryLocation: {
+              id: Number.parseInt(apiOrder.deliveryLocation.id, 10),
+              name: apiOrder.deliveryLocation.name,
+              address: apiOrder.deliveryLocation.address,
+              area: apiOrder.deliveryLocation.area,
+            },
+            specialNote: apiOrder.notes || undefined,
+            createdAt: apiOrder.createdAt,
+            updatedAt: apiOrder.updatedAt,
+          }
+
+          // 生成 QR Code
+          order.qrCode = await generateOrderQRCode(order.id)
+
+          return order
+        }),
+      )
     }
-    catch (err) {
-      console.error('載入資料失敗:', err)
+    catch (err: any) {
+      console.error('載入訂單失敗:', err)
+      error.value = err instanceof Error ? err.message : '載入訂單失敗'
+      orders.value = []
+    }
+    finally {
+      isLoading.value = false
     }
   }
 
-  async function saveToLocalStorage() {
+  async function fetchOrderById(orderId: string): Promise<BookingOrder | null> {
     try {
+      isLoading.value = true
+      error.value = null
+
       const lineStore = useLineStore()
 
-      if (!lineStore.userId)
-        return
-
-      const key = `booking_orders_${lineStore.userId}`
-      const data = {
-        orders: orders.value,
-        lastUpdated: new Date().toISOString(),
+      if (!lineStore.userId) {
+        throw new Error('LINE 使用者 ID 不存在')
       }
 
-      localStorage.setItem(key, JSON.stringify(data))
+      // 從 API 載入單一訂單
+      const apiOrder = await $fetch<{
+        id: string
+        category: string
+        lineName: string
+        phone: string
+        deliveryDate: string
+        pickupTime: string
+        luggageCount: number
+        status: string
+        pickupLocation: {
+          id: string
+          name: string
+          address: string
+          area: string
+        }
+        deliveryLocation: {
+          id: string
+          name: string
+          address: string
+          area: string
+        }
+        notes: string
+        createdAt: string
+        updatedAt: string
+      }>(`/api/orders/${orderId}`)
+
+      const { generateOrderQRCode } = useQRCode()
+
+      // 轉換為本地格式
+      const order: BookingOrder = {
+        id: apiOrder.id,
+        userId: lineStore.userId || '',
+        userName: apiOrder.lineName,
+        status: apiOrder.status as BookingStatus,
+        bookingDate: apiOrder.deliveryDate,
+        pickupTime: apiOrder.pickupTime,
+        luggageCount: apiOrder.luggageCount,
+        pickupLocation: {
+          id: Number.parseInt(apiOrder.pickupLocation.id, 10),
+          name: apiOrder.pickupLocation.name,
+          address: apiOrder.pickupLocation.address,
+          area: apiOrder.pickupLocation.area,
+        },
+        deliveryLocation: {
+          id: Number.parseInt(apiOrder.deliveryLocation.id, 10),
+          name: apiOrder.deliveryLocation.name,
+          address: apiOrder.deliveryLocation.address,
+          area: apiOrder.deliveryLocation.area,
+        },
+        specialNote: apiOrder.notes || undefined,
+        createdAt: apiOrder.createdAt,
+        updatedAt: apiOrder.updatedAt,
+      }
+
+      // 生成 QR Code
+      order.qrCode = await generateOrderQRCode(order.id)
+
+      // 更新本地快取
+      const existingIndex = orders.value.findIndex(o => o.id === orderId)
+      if (existingIndex !== -1) {
+        orders.value[existingIndex] = order
+      }
+      else {
+        orders.value.push(order)
+      }
+
+      return order
     }
-    catch (err) {
-      console.error('儲存資料失敗:', err)
+    catch (err: any) {
+      console.error('載入訂單詳情失敗:', err)
+      error.value = err instanceof Error ? err.message : '載入訂單詳情失敗'
+      return null
+    }
+    finally {
+      isLoading.value = false
     }
   }
 
   function clearAllOrders() {
     orders.value = []
     currentOrder.value = null
-    const lineStore = useLineStore()
-    if (lineStore.userId)
-      localStorage.removeItem(`booking_orders_${lineStore.userId}`)
   }
 
   return {
@@ -197,8 +365,8 @@ export const useBookingStore = defineStore('booking', () => {
     cancelOrder,
     setCurrentOrder,
     queryOrderByQRCode,
-    loadFromLocalStorage,
-    saveToLocalStorage,
+    loadOrders,
+    fetchOrderById,
     clearAllOrders,
   }
 })

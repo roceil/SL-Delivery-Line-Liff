@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import type { BookingOrder } from '~/types/booking'
+
 definePageMeta({
   layout: 'life',
   title: '訂單詳情',
@@ -6,14 +8,19 @@ definePageMeta({
 
 const route = useRoute()
 const bookingStore = useBookingStore()
-const { getOrderById } = storeToRefs(bookingStore)
+const { isLoading } = storeToRefs(bookingStore)
 
 const orderId = route.params.id as string
-const order = computed(() => getOrderById.value(orderId))
+const order = ref<BookingOrder | null>(null)
 
 const showCancelConfirm = ref(false)
 const isCancelling = ref(false)
 const cancelError = ref('')
+
+// 頁面載入時直接從 API 載入訂單
+onMounted(async () => {
+  order.value = await bookingStore.fetchOrderById(orderId)
+})
 
 async function cancelOrder() {
   if (!order.value)
@@ -24,6 +31,9 @@ async function cancelOrder() {
     cancelError.value = ''
     await bookingStore.cancelOrder(order.value.id)
     showCancelConfirm.value = false
+
+    // 重新從 API 載入訂單以取得最新狀態
+    order.value = await bookingStore.fetchOrderById(orderId)
   }
   catch (err) {
     cancelError.value = err instanceof Error ? err.message : '取消訂單失敗'
@@ -41,9 +51,19 @@ function formatDateTime(dateString: string, timeString: string) {
 </script>
 
 <template>
+  <!-- 載入中 -->
+  <div
+    v-if="isLoading"
+    class="rounded-lg bg-white p-8 text-center shadow"
+  >
+    <div class="text-gray-600">
+      載入中...
+    </div>
+  </div>
+
   <!-- 訂單不存在 -->
   <div
-    v-if="!order"
+    v-else-if="!order"
     class="rounded-lg bg-white p-8 text-center shadow"
   >
     <div class="text-gray-400">

@@ -8,6 +8,7 @@ const config = useRuntimeConfig()
 const lineStore = useLineStore()
 const bookingStore = useBookingStore()
 const profileStore = useProfileStore()
+const locationsStore = useLocationsStore()
 
 const { initLiff, login } = lineStore
 const { isInitialized, isLoggedIn, user, error } = storeToRefs(lineStore)
@@ -25,8 +26,11 @@ onMounted(async () => {
   }
 
   // 載入資料
-  await bookingStore.loadFromLocalStorage()
-  await profileStore.initProfile()
+  await Promise.all([
+    bookingStore.loadOrders(),
+    profileStore.initProfile(),
+    locationsStore.fetchLocations(),
+  ])
 })
 </script>
 

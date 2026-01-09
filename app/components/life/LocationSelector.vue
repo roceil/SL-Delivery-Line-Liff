@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import type { Location } from '~/types/booking'
-import { PRESET_LOCATIONS } from '~/constants/locations'
 
 interface Props {
   modelValue: Location | null
-  excludeId?: string
+  excludeId?: number
   label?: string
   required?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  excludeId: '',
+  excludeId: undefined,
   label: '選擇地點',
   required: true,
 })
@@ -19,17 +18,21 @@ const emit = defineEmits<{
   'update:modelValue': [value: Location | null]
 }>()
 
+const locationsStore = useLocationsStore()
+const { locations } = storeToRefs(locationsStore)
+
 const availableLocations = computed(() => {
   if (!props.excludeId)
-    return PRESET_LOCATIONS
+    return locations.value
 
-  return PRESET_LOCATIONS.filter(loc => loc.id !== props.excludeId)
+  return locations.value.filter(loc => loc.id !== props.excludeId)
 })
 
 const selectedLocationId = computed({
-  get: () => props.modelValue?.id ?? '',
+  get: () => props.modelValue?.id?.toString() ?? '',
   set: (value) => {
-    const location = PRESET_LOCATIONS.find(loc => loc.id === value)
+    const locationId = Number.parseInt(value, 10)
+    const location = locations.value.find(loc => loc.id === locationId)
     emit('update:modelValue', location || null)
   },
 })

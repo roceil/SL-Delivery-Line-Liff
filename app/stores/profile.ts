@@ -18,17 +18,48 @@ export const useProfileStore = defineStore('profile', () => {
     if (!lineStore.userId)
       return
 
-    // 先嘗試從 LocalStorage 載入
-    await loadFromLocalStorage()
+    try {
+      isLoading.value = true
+      error.value = null
 
-    // 如果沒有資料，建立新的
-    if (!profile.value) {
+      // 從 API 載入使用者資料
+      const response = await $fetch<{
+        userId: number
+        lineUserId: string
+        displayName: string
+        phone: string | null
+        email: string | null
+        memberLevel: number
+        createdAt: string
+        updatedAt: string
+      }>(`/api/users/${lineStore.userId}`)
+
       profile.value = {
-        userId: lineStore.userId,
-        displayName: lineStore.displayName,
-        updatedAt: new Date().toISOString(),
+        userId: response.lineUserId,
+        displayName: response.displayName,
+        phoneNumber: response.phone || undefined,
+        email: response.email || undefined,
+        updatedAt: response.updatedAt,
       }
-      await saveToLocalStorage()
+    }
+    catch (err: any) {
+      // 如果使用者不存在（404），不顯示錯誤
+      if (err?.statusCode === 404) {
+        console.log('使用者尚未建立，等待第一次建立訂單')
+        // 設定基本資料（來自 LINE）
+        profile.value = {
+          userId: lineStore.userId,
+          displayName: lineStore.displayName,
+          updatedAt: new Date().toISOString(),
+        }
+      }
+      else {
+        console.error('載入個人資料失敗:', err)
+        error.value = '載入個人資料失敗'
+      }
+    }
+    finally {
+      isLoading.value = false
     }
   }
 
@@ -40,6 +71,10 @@ export const useProfileStore = defineStore('profile', () => {
       if (!profile.value)
         throw new Error('個人資料尚未初始化')
 
+      const lineStore = useLineStore()
+      if (!lineStore.userId)
+        throw new Error('LINE 使用者 ID 不存在')
+
       const { validatePhoneNumber, validateEmail } = useValidation()
 
       // 驗證電話號碼格式
@@ -50,16 +85,40 @@ export const useProfileStore = defineStore('profile', () => {
       if (updates.email && !validateEmail(updates.email))
         throw new Error('信箱格式不正確')
 
-      profile.value = {
-        ...profile.value,
-        ...updates,
-        updatedAt: new Date().toISOString(),
-      }
+      // 呼叫 API 更新使用者資料
+      const response = await $fetch<{
+        userId: number
+        lineUserId: string
+        displayName: string
+        phone: string | null
+        email: string | null
+        memberLevel: number
+        createdAt: string
+        updatedAt: string
+      }>(`/api/users/${lineStore.userId}`, {
+        method: 'PUT',
+        body: {
+          phone: updates.phoneNumber || null,
+          email: updates.email || null,
+        },
+      })
 
-      await saveToLocalStorage()
+      // 更新本地 profile
+      profile.value = {
+        userId: response.lineUserId,
+        displayName: response.displayName,
+        phoneNumber: response.phone || undefined,
+        email: response.email || undefined,
+        updatedAt: response.updatedAt,
+      }
     }
-    catch (err) {
-      error.value = err instanceof Error ? err.message : '更新失敗'
+    catch (err: any) {
+      if (err?.statusCode === 404) {
+        error.value = '使用者不存在，請先建立訂單'
+      }
+      else {
+        error.value = err instanceof Error ? err.message : '更新失敗'
+      }
       throw err
     }
     finally {
@@ -67,44 +126,17 @@ export const useProfileStore = defineStore('profile', () => {
     }
   }
 
+  // 已棄用：不再使用 localStorage
   async function loadFromLocalStorage() {
-    try {
-      const lineStore = useLineStore()
-
-      if (!lineStore.userId)
-        return
-
-      const key = `user_profile_${lineStore.userId}`
-      const stored = localStorage.getItem(key)
-
-      if (stored)
-        profile.value = JSON.parse(stored)
-    }
-    catch (err) {
-      console.error('載入個人資料失敗:', err)
-    }
+    // 保留空函數以維持向後相容
   }
 
   async function saveToLocalStorage() {
-    try {
-      const lineStore = useLineStore()
-
-      if (!lineStore.userId || !profile.value)
-        return
-
-      const key = `user_profile_${lineStore.userId}`
-      localStorage.setItem(key, JSON.stringify(profile.value))
-    }
-    catch (err) {
-      console.error('儲存個人資料失敗:', err)
-    }
+    // 保留空函數以維持向後相容
   }
 
   function clearProfile() {
     profile.value = null
-    const lineStore = useLineStore()
-    if (lineStore.userId)
-      localStorage.removeItem(`user_profile_${lineStore.userId}`)
   }
 
   return {

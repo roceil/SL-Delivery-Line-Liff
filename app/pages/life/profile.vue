@@ -8,6 +8,7 @@ const profileStore = useProfileStore()
 const { profile } = storeToRefs(profileStore)
 
 const isEditing = ref(false)
+const isSaving = ref(false)
 const phoneNumber = ref('')
 const email = ref('')
 const error = ref('')
@@ -38,6 +39,7 @@ function cancelEditing() {
 async function saveProfile() {
   try {
     error.value = ''
+    isSaving.value = true
 
     await profileStore.updateProfile({
       phoneNumber: phoneNumber.value || undefined,
@@ -48,6 +50,9 @@ async function saveProfile() {
   }
   catch (err) {
     error.value = err instanceof Error ? err.message : '儲存失敗，請稍後再試'
+  }
+  finally {
+    isSaving.value = false
   }
 }
 </script>
@@ -156,10 +161,12 @@ async function saveProfile() {
         >
           <button
             type="button"
+            :disabled="isSaving"
             class="
               flex-1 rounded-lg bg-gray-200 px-4 py-3 font-semibold
               text-gray-800 shadow transition-colors
               hover:bg-gray-300
+              disabled:cursor-not-allowed disabled:opacity-50
             "
             @click="cancelEditing"
           >
@@ -167,13 +174,15 @@ async function saveProfile() {
           </button>
           <button
             type="submit"
+            :disabled="isSaving"
             class="
               flex-1 rounded-lg bg-green-500 px-4 py-3 font-semibold text-white
               shadow transition-colors
               hover:bg-green-600
+              disabled:cursor-not-allowed disabled:opacity-50
             "
           >
-            儲存
+            {{ isSaving ? '儲存中...' : '儲存' }}
           </button>
         </div>
       </form>

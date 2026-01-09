@@ -69,6 +69,7 @@ export default defineNuxtConfig({
     public: {
       liffId: process.env.NUXT_PUBLIC_LIFF_ID,
       appUrl: process.env.NUXT_PUBLIC_APP_URL || 'http://localhost:3000',
+      backstationApiUrl: process.env.NUXT_PUBLIC_BACKSTATION_API_URL || 'http://localhost:3001',
     },
   },
 

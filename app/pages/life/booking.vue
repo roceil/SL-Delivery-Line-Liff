@@ -9,6 +9,7 @@ definePageMeta({
 const router = useRouter()
 const lineStore = useLineStore()
 const bookingStore = useBookingStore()
+const locationsStore = useLocationsStore()
 const { validateBookingDate, validateTime } = useValidation()
 
 // Form data
@@ -21,6 +22,11 @@ const specialNote = ref('')
 
 const isSubmitting = ref(false)
 const formError = ref('')
+
+// 載入配送地點
+onMounted(async () => {
+  await locationsStore.fetchLocations()
+})
 
 // 設定最小日期為今天
 const today = computed(() => {

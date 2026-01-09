@@ -9,6 +9,7 @@ definePageMeta({
 const router = useRouter()
 const lineStore = useLineStore()
 const bookingStore = useBookingStore()
+const locationsStore = useLocationsStore()
 const { scanQRCode } = useQRCode()
 
 const isScanning = ref(false)
@@ -18,7 +19,14 @@ const fileInput = ref<HTMLInputElement | null>(null)
 
 // 建立測試訂單
 async function createTestOrder() {
-  const { PRESET_LOCATIONS } = await import('~/constants/locations')
+  // 確保配送地點已載入
+  if (locationsStore.locations.length === 0) {
+    await locationsStore.fetchLocations()
+  }
+
+  if (locationsStore.locations.length < 2) {
+    throw new Error('配送地點資料不足，無法建立訂單')
+  }
 
   const orderData = {
     userId: lineStore.userId || 'test-user',
@@ -26,8 +34,8 @@ async function createTestOrder() {
     bookingDate: new Date().toISOString().split('T')[0] as string,
     pickupTime: '10:00' as string,
     luggageCount: 1 as number,
-    pickupLocation: PRESET_LOCATIONS[0]!, // 台北 101
-    deliveryLocation: PRESET_LOCATIONS[3]!, // 桃園機場 T1
+    pickupLocation: locationsStore.locations[0]!, // 第一個地點
+    deliveryLocation: locationsStore.locations[1]!, // 第二個地點
     specialNote: '透過掃描 QR Code 自動建立' as string | undefined,
   }
 

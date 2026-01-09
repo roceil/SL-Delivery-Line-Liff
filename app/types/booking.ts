@@ -1,7 +1,12 @@
 export interface Location {
-  id: string
+  id: number // 從 Backstation API 取得的 ID（數字）
   name: string
   address: string
+  type?: string // 地點類型名稱
+  typeId?: number // 地點類型 ID
+  area?: string // 區域
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export type BookingStatus = 'pending' | 'confirmed' | 'in_transit' | 'delivered' | 'cancelled'
