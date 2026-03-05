@@ -127,7 +127,10 @@ onMounted(async () => {
     <!-- 已登入 -->
     <template v-else-if="user">
       <!-- Header -->
-      <header class="flex h-[48px] shrink-0 items-center px-2">
+      <header
+        v-if="false"
+        class="flex h-[48px] shrink-0 items-center px-2"
+      >
         <button
           type="button"
           class="flex size-10 items-center justify-center"
