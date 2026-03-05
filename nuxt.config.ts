@@ -23,6 +23,7 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
     '@vueuse/nuxt',
     '@nuxt/eslint',
+    '@nuxt/image',
   ],
 
   css: ['~/assets/css/main.css'],
@@ -52,6 +53,16 @@ export default defineNuxtConfig({
 
   pinia: {
     storesDirs: ['./app/stores/**'],
+  },
+
+  fonts: {
+    families: [
+      {
+        name: 'Noto Sans TC',
+        provider: 'google',
+        weights: [400, 500, 700],
+      },
+    ],
   },
 
   eslint: {

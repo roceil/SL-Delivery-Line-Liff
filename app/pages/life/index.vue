@@ -4,17 +4,69 @@ definePageMeta({
 })
 
 const config = useRuntimeConfig()
+const router = useRouter()
 
 const lineStore = useLineStore()
 const bookingStore = useBookingStore()
 const profileStore = useProfileStore()
 const locationsStore = useLocationsStore()
 
-const { initLiff, login } = lineStore
+const { initLiff, login, closeLiff } = lineStore
 const { isInitialized, isLoggedIn, user, error } = storeToRefs(lineStore)
 const { activeOrders } = storeToRefs(bookingStore)
 
 const isLoading = ref(true)
+
+const firstActiveOrder = computed(() => activeOrders.value[0] ?? null)
+
+const navItems = [
+  { name: '首頁', path: '/life', icon: 'carbon:home' },
+  { name: '我要預約', path: '/life/booking', icon: 'carbon:calendar' },
+  { name: '我的訂單', path: '/life/my-bookings', icon: 'carbon:receipt' },
+  { name: '我的', path: '/life/profile', icon: 'carbon:user' },
+]
+
+const route = useRoute()
+
+function isNavActive(path: string) {
+  if (path === '/life') {
+    return route.path === '/life'
+  }
+  return route.path.startsWith(path)
+}
+
+function getStatusBadge(status: string) {
+  const map: Record<string, { text: string, cls: string }> = {
+    pending: { text: '待確認', cls: 'bg-neutral-200 text-neutral-600' },
+    confirmed: { text: '待交付', cls: 'bg-info-100 text-info-300' },
+    in_transit: { text: '運送中', cls: 'bg-info-100 text-info-300' },
+    delivered: { text: '已送達', cls: 'bg-success-100 text-success-300' },
+    cancelled: { text: '已取消', cls: 'bg-danger-100 text-danger-300' },
+  }
+  return map[status] ?? { text: '待確認', cls: 'bg-neutral-200 text-neutral-600' }
+}
+
+function getProgressPercent(status: string) {
+  const map: Record<string, number> = {
+    pending: 20,
+    confirmed: 40,
+    in_transit: 80,
+    delivered: 100,
+    cancelled: 0,
+  }
+  return map[status] ?? 0
+}
+
+function getProgressLabel(status: string) {
+  const map: Record<string, string> = {
+    pending: '訂單確認中，請稍候',
+    confirmed: '行李待交付',
+    in_transit: '行李運送中',
+    delivered: '行李已送達',
+    cancelled: '訂單已取消',
+  }
+  return map[status] ?? ''
+}
 
 onMounted(async () => {
   await initLiff(config.public.liffId as string)
@@ -25,7 +77,6 @@ onMounted(async () => {
     return
   }
 
-  // 載入資料
   await Promise.all([
     bookingStore.loadOrders(),
     profileStore.initProfile(),
@@ -35,23 +86,23 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 p-4">
-    <!-- Loading 狀態 -->
+  <div class="flex min-h-screen flex-col">
+    <!-- Loading -->
     <div
       v-if="isLoading"
-      class="flex items-center justify-center pt-20"
+      class="flex flex-1 items-center justify-center"
     >
-      <div class="text-gray-600">
+      <p class="text-neutral-500">
         載入中...
-      </div>
+      </p>
     </div>
 
-    <!-- 錯誤狀態 -->
+    <!-- Error -->
     <div
       v-else-if="error"
-      class="rounded-lg bg-red-50 p-4 text-red-600"
+      class="m-4 rounded-sm bg-danger-100 p-4 text-danger-300"
     >
-      <p class="font-semibold">
+      <p class="font-medium">
         發生錯誤
       </p>
       <p class="text-sm">
@@ -59,129 +110,350 @@ onMounted(async () => {
       </p>
     </div>
 
-    <!-- 已登入狀態 -->
+    <!-- 未登入 -->
     <div
-      v-else-if="isLoggedIn && user"
-      class="mx-auto max-w-md"
-    >
-      <!-- 用戶資訊卡片 -->
-      <div class="mb-6 rounded-lg bg-white p-6 shadow">
-        <div class="flex items-center gap-4">
-          <img
-            v-if="user.pictureUrl"
-            :src="user.pictureUrl"
-            :alt="user.displayName"
-            class="size-16 rounded-full"
-          >
-          <div class="flex-1">
-            <h2 class="text-xl font-bold text-gray-800">
-              {{ user.displayName }}
-            </h2>
-            <p class="text-sm text-gray-600">
-              歡迎使用行李寄送服務
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- 功能按鈕網格 -->
-      <div class="space-y-3">
-        <NuxtLink
-          to="/life/booking"
-          class="
-            block w-full rounded-lg bg-green-500 px-4 py-4 text-left
-            font-semibold text-white shadow transition-colors
-            hover:bg-green-600
-          "
-        >
-          <div class="flex items-center justify-between">
-            <span>立即預約</span>
-            <span class="text-2xl">→</span>
-          </div>
-          <div class="mt-1 text-sm font-normal opacity-90">
-            預約行李寄送服務
-          </div>
-        </NuxtLink>
-
-        <NuxtLink
-          to="/life/query"
-          class="
-            block w-full rounded-lg bg-blue-500 px-4 py-4 text-left
-            font-semibold text-white shadow transition-colors
-            hover:bg-blue-600
-          "
-        >
-          <div class="flex items-center justify-between">
-            <span>查詢訂單</span>
-            <span class="text-2xl">→</span>
-          </div>
-          <div class="mt-1 text-sm font-normal opacity-90">
-            掃描 QR Code 查詢訂單
-          </div>
-        </NuxtLink>
-
-        <NuxtLink
-          to="/life/my-bookings"
-          class="
-            block w-full rounded-lg bg-purple-500 px-4 py-4 text-left
-            font-semibold text-white shadow transition-colors
-            hover:bg-purple-600
-          "
-        >
-          <div class="flex items-center justify-between">
-            <div>
-              <span>我的預約</span>
-              <span
-                v-if="activeOrders.length > 0"
-                class="
-                  ml-2 inline-block rounded-full bg-white px-2 py-0.5 text-xs
-                  text-purple-500
-                "
-              >
-                {{ activeOrders.length }}
-              </span>
-            </div>
-            <span class="text-2xl">→</span>
-          </div>
-          <div class="mt-1 text-sm font-normal opacity-90">
-            查看所有預約記錄
-          </div>
-        </NuxtLink>
-
-        <NuxtLink
-          to="/life/profile"
-          class="
-            block w-full rounded-lg bg-gray-500 px-4 py-4 text-left
-            font-semibold text-white shadow transition-colors
-            hover:bg-gray-600
-          "
-        >
-          <div class="flex items-center justify-between">
-            <span>個人資訊</span>
-            <span class="text-2xl">→</span>
-          </div>
-          <div class="mt-1 text-sm font-normal opacity-90">
-            管理個人聯絡資訊
-          </div>
-        </NuxtLink>
-      </div>
-    </div>
-
-    <!-- 未登入狀態 -->
-    <div
-      v-else
-      class="flex items-center justify-center pt-20"
+      v-else-if="!isLoggedIn"
+      class="flex flex-1 items-center justify-center"
     >
       <button
         type="button"
-        class="
-          rounded-lg bg-green-500 px-6 py-3 font-semibold text-white
-          hover:bg-green-600
-        "
+        class="rounded-sm bg-primary-300 px-m py-s font-medium text-neutral-0"
         @click="login"
       >
         使用 LINE 登入
       </button>
     </div>
+
+    <!-- 已登入 -->
+    <template v-else-if="user">
+      <!-- Header -->
+      <header class="flex h-[48px] shrink-0 items-center px-2">
+        <button
+          type="button"
+          class="flex size-10 items-center justify-center"
+          @click="router.back()"
+        >
+          <Icon
+            name="carbon:chevron-left"
+            class="size-6 text-neutral-900"
+          />
+        </button>
+        <div class="flex flex-1 items-center justify-center">
+          <h1 class="text-lg font-bold tracking-wide text-neutral-900">
+            你行李來
+          </h1>
+        </div>
+        <button
+          type="button"
+          class="flex size-10 items-center justify-center"
+          @click="closeLiff"
+        >
+          <Icon
+            name="carbon:close"
+            class="size-6 text-neutral-900"
+          />
+        </button>
+      </header>
+
+      <!-- Main -->
+      <main
+        class="
+          flex flex-1 flex-col gap-2xl overflow-y-auto px-m py-xl pb-[150px]
+        "
+      >
+        <!-- Profile Card -->
+        <div
+          class="
+            flex items-center gap-s overflow-hidden rounded-sm border
+            border-neutral-0 px-m py-m
+          "
+          style="background: linear-gradient(16.83deg, #fff 0%, rgba(255,255,255,0.5) 100%)"
+        >
+          <img
+            :src="user.pictureUrl || ''"
+            :alt="user.displayName"
+            class="size-12 shrink-0 rounded-rounded object-cover"
+          >
+          <div class="flex min-w-0 flex-1 flex-col gap-2xs">
+            <div
+              class="
+                flex items-center gap-2xs text-md font-bold tracking-wide
+                text-neutral-900
+              "
+            >
+              <span>Hi,</span>
+              <span>{{ user.displayName }}</span>
+            </div>
+            <p class="text-sm tracking-wide text-neutral-600">
+              <template v-if="activeOrders.length > 0">
+                您有 {{ activeOrders.length }} 筆訂單正在進行中！
+              </template>
+              <template v-else>
+                歡迎使用行李寄送服務
+              </template>
+            </p>
+          </div>
+          <button
+            type="button"
+            class="
+              flex shrink-0 items-center justify-center rounded-rounded p-xs
+              shadow-down-200
+            "
+            style="background: linear-gradient(31deg, #fff 0%, rgba(255,255,255,0.5) 100%)"
+          >
+            <Icon
+              name="carbon:notification"
+              class="size-4 text-neutral-700"
+            />
+          </button>
+        </div>
+
+        <!-- Order Status -->
+        <section
+          v-if="firstActiveOrder"
+          class="flex flex-col gap-s"
+        >
+          <div class="flex items-center gap-xs">
+            <span
+              class="size-[6px] shrink-0 rounded-rounded"
+              style="background: linear-gradient(131deg, #4090E8 16%, #306CF7 62%)"
+            ></span>
+            <h2 class="flex-1 text-lg font-bold tracking-wide text-neutral-900">
+              訂單狀態
+            </h2>
+          </div>
+
+          <div
+            class="
+              flex flex-col gap-m overflow-hidden rounded-sm border
+              border-[#4ca4f1] p-m shadow-down-200
+            "
+            style="background: linear-gradient(18deg, #fff 0%, rgba(255,255,255,0.5) 100%)"
+          >
+            <!-- Route + Badge -->
+            <div class="flex items-center justify-between gap-xs">
+              <div class="flex min-w-0 flex-1 items-center gap-2xs">
+                <span
+                  class="
+                    shrink-0 text-sm font-medium tracking-wide text-neutral-900
+                  "
+                >
+                  {{ firstActiveOrder.pickupLocation.name }}
+                </span>
+                <Icon
+                  name="carbon:arrow-right"
+                  class="size-4 shrink-0 text-neutral-500"
+                />
+                <span
+                  class="
+                    truncate text-sm font-medium tracking-wide text-neutral-900
+                  "
+                >
+                  {{ firstActiveOrder.deliveryLocation.name }}
+                </span>
+              </div>
+              <span
+                class="
+                  shrink-0 rounded-rounded px-xs py-3xs text-2xs font-medium
+                  tracking-wide
+                "
+                :class="getStatusBadge(firstActiveOrder?.status ?? 'pending').cls"
+              >
+                {{ getStatusBadge(firstActiveOrder?.status ?? 'pending').text }}
+              </span>
+            </div>
+
+            <!-- Divider -->
+            <div class="h-px bg-neutral-200"></div>
+
+            <!-- Progress -->
+            <div class="flex flex-col gap-xs">
+              <!-- Indicator -->
+              <div
+                class="flex justify-end"
+                :style="{ paddingRight: `calc(${100 - getProgressPercent(firstActiveOrder.status)}% - 8px)` }"
+              >
+                <Icon
+                  name="carbon:baggage-claim"
+                  class="size-4 text-primary-300"
+                />
+              </div>
+              <!-- Track -->
+              <div
+                class="
+                  relative h-[2px] overflow-hidden rounded-rounded
+                  bg-neutral-400
+                "
+              >
+                <div
+                  class="absolute inset-y-0 left-0 rounded-rounded"
+                  :style="{
+                    width: `${getProgressPercent(firstActiveOrder.status)}%`,
+                    background: 'linear-gradient(179deg, #4090E8 16%, #306CF7 62%)',
+                  }"
+                ></div>
+              </div>
+              <!-- Label -->
+              <p
+                class="text-lg font-bold tracking-wide"
+                style="background: linear-gradient(173deg, #4090E8 16%, #306CF7 62%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;"
+              >
+                {{ getProgressLabel(firstActiveOrder.status) }}
+              </p>
+            </div>
+
+            <!-- Detail Button -->
+            <NuxtLink
+              :to="`/life/my-bookings/${firstActiveOrder.id}`"
+              class="
+                flex w-full items-center justify-center rounded-sm border
+                border-neutral-200 bg-neutral-0 px-m py-xs
+              "
+            >
+              <span class="text-sm font-medium tracking-wide text-neutral-900">查看詳情</span>
+            </NuxtLink>
+          </div>
+        </section>
+
+        <!-- 立即預約 -->
+        <section class="flex flex-col gap-s">
+          <h2 class="text-lg font-bold tracking-wide text-neutral-900">
+            立即預約
+          </h2>
+          <div class="flex flex-col gap-xs">
+            <!-- 已透過其他管道購買 -->
+            <NuxtLink
+              to="/life/query"
+              class="flex items-center gap-xs rounded-sm p-m shadow-down-100"
+              style="background: linear-gradient(8deg, #fff 0%, rgba(255,255,255,0.5) 100%)"
+            >
+              <div class="flex items-start self-stretch py-xs">
+                <span class="size-[6px] shrink-0 rounded-rounded bg-success-300"></span>
+              </div>
+
+              <div class="flex min-w-0 flex-1 flex-col gap-3xs">
+                <p class="text-md font-medium tracking-wide text-neutral-900">
+                  我已透過其他管道購買
+                </p>
+                <p class="text-sm tracking-wide text-neutral-600">
+                  KKday/Klook/Trip 旅客請點此預約
+                </p>
+              </div>
+
+              <Icon
+                name="carbon:chevron-right"
+                class="size-5 shrink-0 text-neutral-500"
+              />
+            </NuxtLink>
+
+            <!-- 還沒購買 -->
+            <NuxtLink
+              to="/life/booking"
+              class="flex items-center gap-xs rounded-sm p-m shadow-down-100"
+              style="background: linear-gradient(6deg, #fff 0%, rgba(255,255,255,0.5) 100%)"
+            >
+              <div class="flex items-center">
+                <span class="size-[6px] shrink-0 rounded-rounded bg-warning-300"></span>
+              </div>
+              <div class="flex min-w-0 flex-1 flex-col gap-3xs">
+                <p class="text-md font-medium tracking-wide text-neutral-900">
+                  我還沒購買，想直接預約
+                </p>
+              </div>
+              <Icon
+                name="carbon:chevron-right"
+                class="size-5 shrink-0 text-neutral-500"
+              />
+            </NuxtLink>
+          </div>
+        </section>
+
+        <!-- 幫助中心 -->
+        <section class="flex flex-col gap-s">
+          <h2 class="text-lg font-bold tracking-wide text-neutral-900">
+            幫助中心
+          </h2>
+          <div class="flex gap-xs">
+            <button
+              type="button"
+              class="
+                flex flex-1 flex-col items-start gap-xs overflow-hidden
+                rounded-sm p-m shadow-down-100
+              "
+              style="background: linear-gradient(17deg, #fff 0%, rgba(255,255,255,0.5) 100%)"
+            >
+              <Icon
+                name="carbon:help"
+                class="size-5 text-neutral-700"
+              />
+              <span class="text-md font-medium tracking-wide text-neutral-900">常見問題</span>
+            </button>
+
+            <button
+              type="button"
+              class="
+                flex flex-1 flex-col items-start gap-xs rounded-sm p-m
+                shadow-down-100
+              "
+              style="background: linear-gradient(17deg, #fff 0%, rgba(255,255,255,0.5) 100%)"
+            >
+              <Icon
+                name="carbon:headset"
+                class="size-5 text-neutral-700"
+              />
+              <span class="text-md font-medium tracking-wide text-neutral-900">聯絡客服</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- 提醒事項 -->
+        <div class="flex flex-col gap-3xs px-xs">
+          <p class="text-sm font-medium tracking-wide text-primary-300">
+            提醒事項
+          </p>
+          <p class="text-sm tracking-wide text-neutral-600">
+            為確保物流排程，最晚請於使用日前一天 22:00 前完成線上預約
+          </p>
+        </div>
+      </main>
+
+      <!-- Bottom Navigation -->
+      <nav
+        class="
+          fixed right-0 bottom-0 left-0 overflow-hidden rounded-tl-lg
+          rounded-tr-lg border border-neutral-0 shadow-top-100
+        "
+        style="background: linear-gradient(8deg, #fff 0%, rgba(255,255,255,0.5) 100%); backdrop-filter: blur(12px);"
+      >
+        <div class="flex items-center gap-xl px-xl pt-xs">
+          <NuxtLink
+            v-for="item in navItems"
+            :key="item.path"
+            :to="item.path"
+            class="flex flex-1 flex-col items-center gap-[2px] py-xs"
+          >
+            <Icon
+              :name="item.icon"
+              class="size-5"
+              :class="isNavActive(item.path) ? 'text-primary-300' : `
+                text-neutral-500
+              `"
+            />
+            <span
+              class="text-xs font-medium tracking-wide"
+              :class="isNavActive(item.path) ? 'text-primary-300' : `
+                text-neutral-500
+              `"
+            >
+              {{ item.name }}
+            </span>
+          </NuxtLink>
+        </div>
+        <!-- Home Indicator -->
+        <div class="flex justify-center pt-5 pb-2">
+          <div class="h-[5px] w-[134px] rounded-rounded bg-black/20"></div>
+        </div>
+      </nav>
+    </template>
   </div>
 </template>
