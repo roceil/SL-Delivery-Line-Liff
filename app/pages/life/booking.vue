@@ -1,341 +1,744 @@
 <script lang="ts" setup>
-import type { KlookOrder, Location, PlatformType, TripOrder } from '~/types/booking'
-
 definePageMeta({
-  layout: 'life',
-  title: '立即預約',
+  layout: 'booking-flow',
 })
 
 const router = useRouter()
-const route = useRoute()
 const lineStore = useLineStore()
-const bookingStore = useBookingStore()
+const bookingFormStore = useBookingFormStore()
 const locationsStore = useLocationsStore()
-const { validateBookingDate, validateTime } = useValidation()
-const { queryPlatformOrder } = useQRCode()
+const profileStore = useProfileStore()
 
-// 平台訂單資訊
-const platformType = ref<PlatformType | null>(null)
-const platformOrderId = ref<string | null>(null)
-const platformOrderIdentifier = ref<string | null>(null)
-const platformOrder = ref<TripOrder | KlookOrder | null>(null)
-const isLoadingPlatformOrder = ref(false)
+const { locations } = storeToRefs(locationsStore)
 
-// Form data
-const bookingDate = ref('')
-const pickupTime = ref('')
-const luggageCount = ref(1)
-const pickupLocation = ref<Location | null>(null)
-const deliveryLocation = ref<Location | null>(null)
-const specialNote = ref('')
-
-const isSubmitting = ref(false)
 const formError = ref('')
+const showTermsModal = ref(false)
+const showPriceSummary = ref(false)
+const hasScrolledToBottom = ref(false)
+const mainRef = ref<HTMLElement | null>(null)
 
-// 載入配送地點與平台訂單
+function onMainScroll() {
+  if (!mainRef.value)
+    return
+  const { scrollTop, scrollHeight, clientHeight } = mainRef.value
+  if (scrollTop + clientHeight >= scrollHeight - 10)
+    hasScrolledToBottom.value = true
+}
+
+const servicePlans = [
+  {
+    id: 'round_trip' as const,
+    label: '雙程套票',
+    subtitle: '去程 + 回程',
+    price: 250,
+    badge: '推薦',
+    icon: 'carbon:arrows-horizontal',
+  },
+  {
+    id: 'one_way' as const,
+    label: '單程運送',
+    subtitle: '碼頭 → 民宿\n或民宿 → 碼頭',
+    price: 130,
+    badge: null,
+    icon: 'carbon:arrow-right',
+  },
+]
+
+// 可選地點（排除已選的另一端）
+const pickupOptions = computed(() =>
+  locations.value.filter(loc => loc.id !== bookingFormStore.deliveryLocation?.id),
+)
+const deliveryOptions = computed(() =>
+  locations.value.filter(loc => loc.id !== bookingFormStore.pickupLocation?.id),
+)
+
+// 表單是否填寫完整
+const isFormValid = computed(() => {
+  return (
+    hasScrolledToBottom.value
+    && bookingFormStore.agreeToTerms
+    && bookingFormStore.pickupLocation !== null
+    && bookingFormStore.deliveryLocation !== null
+    && bookingFormStore.bookingDate !== ''
+    && bookingFormStore.recipientName !== ''
+    && bookingFormStore.recipientPhone !== ''
+  )
+})
+
 onMounted(async () => {
-  await locationsStore.fetchLocations()
+  await Promise.all([
+    locationsStore.fetchLocations(),
+    profileStore.initProfile(),
+  ])
 
-  // 檢查是否有平台訂單參數
-  const queryPlatform = route.query.platform as string | undefined
-  const queryOrderId = route.query.orderId as string | undefined
-  const queryOrderIdentifier = route.query.orderIdentifier as string | undefined
+  // 自動填入聯絡人資訊
+  if (!bookingFormStore.recipientName) {
+    const platformContact = bookingFormStore.platformOrder?.contacts?.name
+    bookingFormStore.recipientName = platformContact || lineStore.displayName || ''
+  }
+  if (!bookingFormStore.recipientPhone) {
+    const platformPhone = bookingFormStore.platformOrder?.contacts?.phone
+    bookingFormStore.recipientPhone = platformPhone || profileStore.phoneNumber || ''
+  }
 
-  if (queryPlatform && queryOrderId && queryOrderIdentifier) {
-    platformType.value = queryPlatform as PlatformType
-    platformOrderId.value = queryOrderId
-    platformOrderIdentifier.value = queryOrderIdentifier
-
-    // 載入平台訂單詳情
-    try {
-      isLoadingPlatformOrder.value = true
-      platformOrder.value = await queryPlatformOrder(
-        queryPlatform as 'trip' | 'klook',
-        queryOrderIdentifier,
-      )
-
-      // 自動填入出發日期
-      if (platformOrder.value) {
-        bookingDate.value = platformOrder.value.departureDate
-      }
-    }
-    catch (err) {
-      formError.value = err instanceof Error ? err.message : '載入平台訂單失敗'
-    }
-    finally {
-      isLoadingPlatformOrder.value = false
-    }
+  // 自動填入出發日期
+  if (!bookingFormStore.bookingDate && bookingFormStore.platformOrder?.departureDate) {
+    bookingFormStore.bookingDate = bookingFormStore.platformOrder.departureDate
   }
 })
 
-// 設定最小日期為今天
-const today = computed(() => {
-  const date = new Date()
-  return date.toISOString().split('T')[0]
-})
-
-// 行李件數控制
-function increaseLuggage() {
-  if (luggageCount.value < 10) {
-    luggageCount.value++
-  }
+function selectPickupLocation(event: Event) {
+  const id = Number((event.target as HTMLSelectElement).value)
+  bookingFormStore.pickupLocation = locations.value.find(l => l.id === id) ?? null
 }
 
-function decreaseLuggage() {
-  if (luggageCount.value > 1) {
-    luggageCount.value--
-  }
+function selectDeliveryLocation(event: Event) {
+  const id = Number((event.target as HTMLSelectElement).value)
+  bookingFormStore.deliveryLocation = locations.value.find(l => l.id === id) ?? null
 }
 
-async function submitBooking() {
-  // 重置錯誤
+function swapLocations() {
+  const tmp = bookingFormStore.pickupLocation
+  bookingFormStore.pickupLocation = bookingFormStore.deliveryLocation
+  bookingFormStore.deliveryLocation = tmp
+}
+
+function goToPayment() {
   formError.value = ''
 
-  // 驗證必填欄位
-  if (!bookingDate.value) {
-    formError.value = '請選擇寄送日期'
+  if (!bookingFormStore.pickupLocation) {
+    formError.value = '請選擇寄件地點'
+    return
+  }
+  if (!bookingFormStore.deliveryLocation) {
+    formError.value = '請選擇送達地點'
+    return
+  }
+  if (bookingFormStore.pickupLocation.id === bookingFormStore.deliveryLocation.id) {
+    formError.value = '寄件地點和送達地點不可相同'
+    return
+  }
+  if (!bookingFormStore.bookingDate) {
+    formError.value = '請選擇寄件日期'
+    return
+  }
+  if (!bookingFormStore.recipientName) {
+    formError.value = '請填寫領件人姓名'
+    return
+  }
+  if (!bookingFormStore.recipientPhone) {
+    formError.value = '請填寫聯絡電話'
+    return
+  }
+  if (!bookingFormStore.agreeToTerms) {
+    formError.value = '請閱讀並同意預約須知'
     return
   }
 
-  if (!pickupTime.value) {
-    formError.value = '請選擇寄送時間'
-    return
-  }
-
-  if (!pickupLocation.value) {
-    formError.value = '請選擇起始點'
-    return
-  }
-
-  if (!deliveryLocation.value) {
-    formError.value = '請選擇送達點'
-    return
-  }
-
-  // 驗證日期
-  if (!validateBookingDate(bookingDate.value)) {
-    formError.value = '日期不可早於今天'
-    return
-  }
-
-  // 驗證時間
-  if (!validateTime(pickupTime.value)) {
-    formError.value = '時間格式不正確'
-    return
-  }
-
-  // 驗證起始點和送達點不同
-  if (pickupLocation.value.id === deliveryLocation.value.id) {
-    formError.value = '起始點和送達點不可相同'
-    return
-  }
-
-  try {
-    isSubmitting.value = true
-
-    const newOrder = await bookingStore.createOrder({
-      userId: lineStore.userId!,
-      userName: lineStore.displayName,
-      bookingDate: bookingDate.value,
-      pickupTime: pickupTime.value,
-      luggageCount: luggageCount.value,
-      pickupLocation: pickupLocation.value,
-      deliveryLocation: deliveryLocation.value,
-      specialNote: specialNote.value || undefined,
-      // 平台訂單資訊
-      platformType: platformType.value || undefined,
-      platformOrderId: platformOrderId.value || undefined,
-      // 平台訂單的聯絡電話（優先使用平台訂單的電話）
-      platformPhone: platformOrder.value?.contacts?.phone || undefined,
-    })
-
-    // 導向訂單詳細頁
-    router.push(`/life/my-bookings/${newOrder.id}`)
-  }
-  catch (err) {
-    formError.value = err instanceof Error ? err.message : '建立訂單失敗,請稍後再試'
-  }
-  finally {
-    isSubmitting.value = false
-  }
+  router.push('/life/booking-payment')
 }
+
+const today = computed(() => new Date().toISOString().split('T')[0])
 </script>
 
 <template>
-  <form
-    class="space-y-4"
-    @submit.prevent="submitBooking"
-  >
-    <!-- 載入平台訂單中 -->
-    <div
-      v-if="isLoadingPlatformOrder"
-      class="rounded-lg bg-blue-50 p-4 text-sm text-blue-600"
+  <div class="flex h-full flex-col">
+    <!-- Main Content -->
+    <main
+      ref="mainRef"
+      class="flex-1 overflow-y-auto px-4 py-6"
+      @scroll="onMainScroll"
     >
-      載入平台訂單資訊中...
-    </div>
-
-    <!-- 平台訂單資訊卡片 -->
-    <div
-      v-if="platformOrder && platformType"
-      class="rounded-lg bg-green-50 p-4"
-    >
-      <h3 class="mb-2 font-semibold text-green-800">
-        {{ platformType === 'trip' ? 'Trip.com' : 'Klook' }} 訂單資訊
-      </h3>
-      <div class="space-y-1 text-sm text-green-700">
-        <p v-if="platformType === 'trip' && 'orderNumber' in platformOrder">
-          <span class="font-medium">訂單編號:</span> {{ platformOrder.orderNumber }}
-        </p>
-        <p v-if="platformType === 'klook' && 'resellerReference' in platformOrder">
-          <span class="font-medium">訂單編號:</span> {{ platformOrder.resellerReference }}
-        </p>
-        <p>
-          <span class="font-medium">出發日期:</span> {{ platformOrder.departureDate }}
-        </p>
-        <p>
-          <span class="font-medium">數量:</span> {{ platformOrder.quantity }}
-        </p>
-        <p v-if="platformOrder.contacts">
-          <span class="font-medium">聯絡人:</span> {{ platformOrder.contacts.name }} / {{ platformOrder.contacts.phone }}
-        </p>
-        <p v-if="platformType === 'trip' && 'vouchers' in platformOrder && platformOrder.vouchers">
-          <span class="font-medium">憑證:</span> {{ platformOrder.vouchers }}
-        </p>
-      </div>
-    </div>
-
-    <!-- 錯誤提示 -->
-    <div
-      v-if="formError"
-      class="rounded-lg bg-red-50 p-4 text-sm text-red-600"
-    >
-      {{ formError }}
-    </div>
-
-    <!-- 預約日期 -->
-    <div>
-      <label class="mb-2 block text-sm font-medium text-gray-700">
-        預約日期
-        <span class="text-red-500">*</span>
-      </label>
-      <input
-        v-model="bookingDate"
-        type="date"
-        :min="today"
-        required
-        class="
-          w-[90%] rounded-lg border border-gray-300 bg-white px-4 py-2
-          text-gray-800
-          focus:border-blue-500 focus:ring-2 focus:ring-blue-500
-          focus:outline-none
-        "
-      >
-    </div>
-
-    <!-- 預計寄送時間 -->
-    <div>
-      <label class="mb-2 block text-sm font-medium text-gray-700">
-        預計寄送時間
-        <span class="text-red-500">*</span>
-      </label>
-      <input
-        v-model="pickupTime"
-        type="time"
-        required
-        class="
-          w-[90%] rounded-lg border border-gray-300 bg-white px-4 py-2
-          text-gray-800
-          focus:border-blue-500 focus:ring-2 focus:ring-blue-500
-          focus:outline-none
-        "
-      >
-    </div>
-
-    <!-- 行李件數 -->
-    <div>
-      <label class="mb-2 block text-sm font-medium text-gray-700">
-        行李件數
-        <span class="text-red-500">*</span>
-      </label>
-      <div class="flex items-center gap-4">
-        <button
-          type="button"
-          :disabled="luggageCount <= 1"
-          class="
-            flex size-10 items-center justify-center rounded-lg bg-gray-200
-            text-xl font-bold text-gray-700
-            hover:bg-gray-300
-            disabled:cursor-not-allowed disabled:opacity-50
-          "
-          @click="decreaseLuggage"
+      <div class="flex flex-col gap-4">
+        <!-- 錯誤訊息 -->
+        <div
+          v-if="formError"
+          class="rounded-sm bg-danger-100 p-3 text-sm text-danger-300"
         >
-          −
-        </button>
-        <span class="min-w-12 text-center text-2xl font-semibold text-gray-800">
-          {{ luggageCount }}
-        </span>
-        <button
-          type="button"
-          :disabled="luggageCount >= 10"
+          {{ formError }}
+        </div>
+
+        <!-- 選擇服務方案 -->
+        <div
           class="
-            flex size-10 items-center justify-center rounded-lg bg-gray-200
-            text-xl font-bold text-gray-700
-            hover:bg-gray-300
-            disabled:cursor-not-allowed disabled:opacity-50
+            rounded-sm bg-white p-4
+            shadow-[0px_4px_32px_0px_rgba(32,78,184,0.08)]
           "
-          @click="increaseLuggage"
         >
-          +
-        </button>
+          <div class="mb-5 flex items-center gap-2">
+            <div
+              class="w-1 self-stretch rounded-xs"
+              style="background: linear-gradient(101deg, #4090E8 16%, #306CF7 62%);"
+            ></div>
+            <span class="text-base font-bold text-neutral-900">選擇服務方案</span>
+          </div>
+          <div class="flex gap-3">
+            <button
+              v-for="plan in servicePlans"
+              :key="plan.id"
+              class="
+                relative flex flex-1 flex-col gap-3 rounded-sm border p-4
+                text-left transition-colors
+              "
+              :class="bookingFormStore.serviceType === plan.id
+                ? 'border-[#4090e8]'
+                : 'border-neutral-200'"
+              @click="bookingFormStore.serviceType = plan.id"
+            >
+              <!-- 推薦 badge -->
+              <div
+                v-if="plan.badge"
+                class="
+                  absolute top-2 left-[99px] rounded-full bg-success-100 px-2
+                  py-0.5
+                "
+              >
+                <span class="text-[11px] font-medium text-success-300">{{ plan.badge }}</span>
+              </div>
+              <!-- Icon -->
+              <div
+                class="flex size-8 items-center justify-center rounded-full p-2"
+                :class="bookingFormStore.serviceType === plan.id ? `
+                  bg-primary-200
+                ` : `bg-neutral-200`"
+              >
+                <Icon
+                  :name="plan.icon"
+                  class="text-base"
+                  :class="bookingFormStore.serviceType === plan.id ? `
+                    text-primary-300
+                  ` : `text-neutral-600`"
+                />
+              </div>
+              <!-- Labels -->
+              <div class="flex flex-col gap-0.5">
+                <span class="text-base font-bold text-neutral-900">{{ plan.label }}</span>
+                <span
+                  class="
+                    text-sm leading-relaxed whitespace-pre-line text-neutral-600
+                  "
+                >{{ plan.subtitle }}</span>
+              </div>
+              <!-- Price -->
+              <span
+                class="text-sm font-bold"
+                :class="bookingFormStore.serviceType === plan.id ? `
+                  text-primary-300
+                ` : `text-neutral-900`"
+              >
+                NT$ {{ plan.price }} / 件
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 行李數量 -->
+        <div
+          class="
+            rounded-sm bg-white p-4
+            shadow-[0px_4px_32px_0px_rgba(32,78,184,0.08)]
+          "
+        >
+          <div class="mb-4 flex items-center gap-2">
+            <div
+              class="w-1 self-stretch rounded-xs"
+              style="background: linear-gradient(101deg, #4090E8 16%, #306CF7 62%);"
+            ></div>
+            <span class="text-base font-bold text-neutral-900">行李數量</span>
+          </div>
+          <div
+            class="
+              flex h-10 items-center gap-3 rounded-[6px] bg-neutral-100 px-3
+              py-2
+            "
+          >
+            <button
+              class="flex size-8 items-center justify-center rounded-[6px] p-2"
+              :disabled="bookingFormStore.luggageCount <= 1"
+              @click="bookingFormStore.luggageCount > 1 && bookingFormStore.luggageCount--"
+            >
+              <Icon
+                name="carbon:subtract"
+                class="text-xl text-neutral-900"
+              />
+            </button>
+            <span class="flex-1 text-center text-sm text-neutral-900">{{ bookingFormStore.luggageCount }}</span>
+            <button
+              class="flex size-8 items-center justify-center rounded-[6px] p-2"
+              :disabled="bookingFormStore.luggageCount >= 10"
+              @click="bookingFormStore.luggageCount < 10 && bookingFormStore.luggageCount++"
+            >
+              <Icon
+                name="carbon:add"
+                class="text-xl text-neutral-900"
+              />
+            </button>
+          </div>
+        </div>
+
+        <!-- 設定路線 -->
+        <div
+          class="
+            rounded-sm bg-white p-4
+            shadow-[0px_4px_32px_0px_rgba(32,78,184,0.08)]
+          "
+        >
+          <div class="mb-4 flex items-center gap-2">
+            <div
+              class="w-1 self-stretch rounded-xs"
+              style="background: linear-gradient(101deg, #4090E8 16%, #306CF7 62%);"
+            ></div>
+            <span class="text-base font-bold text-neutral-900">設定路線</span>
+          </div>
+
+          <!-- 寄件地點 -->
+          <div class="mb-4 flex flex-col gap-1">
+            <span class="text-sm font-medium text-neutral-600">寄件地點</span>
+            <div class="relative">
+              <select
+                class="
+                  w-full appearance-none rounded-[6px] border border-neutral-200
+                  bg-white px-3 py-2 pr-8 text-base
+                  focus:ring-1 focus:ring-primary-300 focus:outline-none
+                "
+                :class="bookingFormStore.pickupLocation ? 'text-neutral-900' : `
+                  text-neutral-500
+                `"
+                :value="bookingFormStore.pickupLocation?.id ?? ''"
+                @change="selectPickupLocation"
+              >
+                <option
+                  value=""
+                  disabled
+                >
+                  你行李來（小琉球碼頭門市）
+                </option>
+                <option
+                  v-for="loc in pickupOptions"
+                  :key="loc.id"
+                  :value="loc.id"
+                >
+                  {{ loc.name }}
+                </option>
+              </select>
+              <Icon
+                name="carbon:chevron-down"
+                class="
+                  pointer-events-none absolute top-1/2 right-2 -translate-y-1/2
+                  text-neutral-500
+                "
+              />
+            </div>
+          </div>
+
+          <!-- 交換按鈕 -->
+          <div class="mb-4 flex justify-center">
+            <button
+              class="flex size-6 items-center justify-center"
+              @click="swapLocations"
+            >
+              <Icon
+                name="carbon:arrows-vertical"
+                class="text-2xl text-neutral-600"
+              />
+            </button>
+          </div>
+
+          <!-- 送達地點 -->
+          <div class="flex flex-col gap-1">
+            <span class="text-sm font-medium text-neutral-600">送達地點</span>
+            <div class="relative">
+              <select
+                class="
+                  w-full appearance-none rounded-[6px] border border-neutral-200
+                  bg-white px-3 py-2 pr-8 text-base
+                  focus:ring-1 focus:ring-primary-300 focus:outline-none
+                "
+                :class="bookingFormStore.deliveryLocation ? 'text-neutral-900' : `
+                  text-neutral-500
+                `"
+                :value="bookingFormStore.deliveryLocation?.id ?? ''"
+                @change="selectDeliveryLocation"
+              >
+                <option
+                  value=""
+                  disabled
+                >
+                  僅限小琉球島內之合法民宿
+                </option>
+                <option
+                  v-for="loc in deliveryOptions"
+                  :key="loc.id"
+                  :value="loc.id"
+                >
+                  {{ loc.name }}
+                </option>
+              </select>
+              <Icon
+                name="carbon:chevron-down"
+                class="
+                  pointer-events-none absolute top-1/2 right-2 -translate-y-1/2
+                  text-neutral-500
+                "
+              />
+            </div>
+            <p class="px-1 text-xs text-info-300">
+              建議使用 Google Map 上的全銜
+            </p>
+          </div>
+        </div>
+
+        <!-- 寄件日期 -->
+        <div
+          class="
+            rounded-sm bg-white p-4
+            shadow-[0px_4px_32px_0px_rgba(32,78,184,0.08)]
+          "
+        >
+          <div class="mb-4 flex items-center gap-2">
+            <div
+              class="w-1 self-stretch rounded-xs"
+              style="background: linear-gradient(101deg, #4090E8 16%, #306CF7 62%);"
+            ></div>
+            <span class="text-base font-bold text-neutral-900">寄件日期</span>
+          </div>
+          <input
+            v-model="bookingFormStore.bookingDate"
+            type="date"
+            :min="today"
+            class="
+              w-full rounded-xs border border-neutral-200 bg-white px-3 py-2
+              text-base text-neutral-900
+              focus:ring-1 focus:ring-primary-300 focus:outline-none
+            "
+          >
+        </div>
+
+        <!-- 領件人資訊 -->
+        <div
+          class="
+            rounded-sm bg-white p-4
+            shadow-[0px_4px_32px_0px_rgba(32,78,184,0.08)]
+          "
+        >
+          <div class="mb-4 flex items-center gap-2">
+            <div
+              class="w-1 self-stretch rounded-xs"
+              style="background: linear-gradient(101deg, #4090E8 16%, #306CF7 62%);"
+            ></div>
+            <span class="text-base font-bold text-neutral-900">領件人資訊</span>
+          </div>
+          <div class="mb-4 flex flex-col gap-1">
+            <span class="text-sm font-medium text-neutral-600">姓名</span>
+            <input
+              v-model="bookingFormStore.recipientName"
+              type="text"
+              placeholder="池昌旭"
+              class="
+                w-full rounded-xs border border-neutral-200 bg-white px-3 py-2
+                text-base text-neutral-900
+                placeholder:text-neutral-500
+                focus:ring-1 focus:ring-primary-300 focus:outline-none
+              "
+            >
+          </div>
+          <div class="flex flex-col gap-1">
+            <span class="text-sm font-medium text-neutral-600">聯絡電話</span>
+            <input
+              v-model="bookingFormStore.recipientPhone"
+              type="tel"
+              placeholder="0912345678"
+              class="
+                w-full rounded-xs border border-neutral-200 bg-white px-3 py-2
+                text-base text-neutral-900
+                placeholder:text-neutral-500
+                focus:ring-1 focus:ring-primary-300 focus:outline-none
+              "
+            >
+          </div>
+        </div>
+
+        <!-- 備註 -->
+        <div
+          class="
+            rounded-sm bg-white p-4
+            shadow-[0px_4px_32px_0px_rgba(32,78,184,0.08)]
+          "
+        >
+          <div class="mb-4 flex items-center gap-2">
+            <div
+              class="w-1 self-stretch rounded-xs"
+              style="background: linear-gradient(101deg, #4090E8 16%, #306CF7 62%);"
+            ></div>
+            <div class="flex items-center gap-1">
+              <span class="text-base font-bold text-neutral-900">備註</span>
+              <span class="text-sm text-neutral-600">(選填)</span>
+            </div>
+          </div>
+          <textarea
+            v-model="bookingFormStore.notes"
+            rows="3"
+            placeholder="例如行李尺寸、易碎物品等"
+            class="
+              w-full rounded-xs border border-neutral-200 bg-white px-3 py-2
+              text-base text-neutral-900
+              placeholder:text-neutral-500
+              focus:ring-1 focus:ring-primary-300 focus:outline-none
+            "
+          ></textarea>
+        </div>
+
+        <!-- 同意條款 -->
+        <div class="flex items-start gap-2 px-1">
+          <input
+            id="agree-terms"
+            v-model="bookingFormStore.agreeToTerms"
+            type="checkbox"
+            class="
+              mt-0.5 size-[18px] rounded-[4px] border border-neutral-300
+              accent-primary-300
+            "
+          >
+          <label
+            for="agree-terms"
+            class="text-base text-neutral-900"
+          >
+            我已閱讀並同意
+            <button
+              class="text-[#1c60cc] underline"
+              @click.prevent="showTermsModal = true"
+            >
+              預約須知
+            </button>
+          </label>
+        </div>
       </div>
-    </div>
+    </main>
 
-    <!-- 起始點 -->
-    <LifeLocationSelector
-      v-model="pickupLocation"
-      label="起始點"
-      :exclude-id="deliveryLocation?.id"
-      :required="true"
-    />
-
-    <!-- 送達點 -->
-    <LifeLocationSelector
-      v-model="deliveryLocation"
-      label="送達點"
-      :exclude-id="pickupLocation?.id"
-      :required="true"
-    />
-
-    <!-- 特殊備註 -->
-    <div>
-      <label class="mb-2 block text-sm font-medium text-gray-700">
-        特殊備註
-      </label>
-      <textarea
-        v-model="specialNote"
-        rows="3"
-        placeholder="例如：行李尺寸、易碎物品等..."
-        class="
-          w-full rounded-lg border border-gray-300 bg-white px-4 py-2
-          text-gray-800
-          focus:border-blue-500 focus:ring-2 focus:ring-blue-500
-          focus:outline-none
-        "
-      ></textarea>
-    </div>
-
-    <!-- 提交按鈕 -->
-    <button
-      type="submit"
-      :disabled="isSubmitting"
+    <!-- Bottom Navigation -->
+    <footer
       class="
-        w-full rounded-lg bg-green-500 px-4 py-3 font-semibold text-white shadow
-        transition-colors
-        hover:bg-green-600
-        disabled:cursor-not-allowed disabled:opacity-50
+        relative shrink-0 rounded-t-lg border border-white backdrop-blur-md
       "
+      style="background: linear-gradient(10deg, rgb(255,255,255) 0%, rgba(255,255,255,0.5) 100%); box-shadow: 0px -4px 20px 0px rgba(32,78,184,0.12);"
     >
-      {{ isSubmitting ? '處理中...' : '確認預約' }}
-    </button>
-  </form>
+      <!-- 未展開時的全區點擊攔截層 -->
+      <div
+        v-if="!showPriceSummary"
+        class="absolute inset-0 z-10"
+        @click="showPriceSummary = true"
+      ></div>
+      <div class="flex items-center justify-between px-5 py-3">
+        <!-- 總計 -->
+        <button
+          class="flex items-center gap-1"
+          @click="showPriceSummary = !showPriceSummary"
+        >
+          <span class="text-base text-neutral-600">總計</span>
+          <span class="text-lg font-bold text-neutral-900">NT$ {{ bookingFormStore.totalPrice }}</span>
+          <Icon
+            :name="showPriceSummary ? 'carbon:chevron-down' : 'carbon:chevron-up'"
+            class="text-xl text-neutral-900"
+          />
+        </button>
+        <!-- 選擇付款方式 -->
+        <button
+          class="rounded-sm px-5 py-3 text-base font-medium transition-colors"
+          :class="isFormValid
+            ? 'bg-primary-300 text-white'
+            : 'bg-neutral-200 text-neutral-500'"
+          :disabled="!isFormValid"
+          @click="goToPayment"
+        >
+          選擇付款方式
+        </button>
+      </div>
+      <!-- Home Indicator -->
+      <div class="flex items-center justify-center px-2 pt-5 pb-2">
+        <div class="h-[5px] w-[134px] rounded-full bg-black"></div>
+      </div>
+    </footer>
+
+    <!-- 結帳明細底部彈窗 -->
+    <Transition name="slide-up">
+      <div
+        v-if="showPriceSummary"
+        class="absolute inset-x-0 bottom-0 z-10 flex flex-col"
+      >
+        <!-- 背景遮罩 -->
+        <div
+          class="absolute inset-0 -top-[100vh] bg-neutral-900/30"
+          @click="showPriceSummary = false"
+        ></div>
+        <!-- 白色明細卡片 -->
+        <div class="relative rounded-tl-2xl rounded-tr-2xl bg-white p-4">
+          <!-- 標題列 -->
+          <div class="mb-3 flex items-center justify-between">
+            <span class="text-xl font-bold text-neutral-900">結帳明細</span>
+            <button
+              class="flex items-center justify-center p-2"
+              @click="showPriceSummary = false"
+            >
+              <Icon
+                name="carbon:close"
+                class="text-2xl text-neutral-900"
+              />
+            </button>
+          </div>
+          <div class="mb-3 h-px bg-neutral-200"></div>
+          <!-- 明細列表 -->
+          <div class="flex flex-col gap-2 text-base">
+            <div class="flex items-center justify-between">
+              <span class="text-neutral-600">服務方案</span>
+              <span class="text-neutral-900">{{ bookingFormStore.serviceType === 'round_trip' ? '雙程套票' : '單程運送' }}</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-neutral-600">單價</span>
+              <span class="text-neutral-900">NT$ {{ bookingFormStore.unitPrice }}</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-neutral-600">行李數量</span>
+              <span class="text-neutral-900">{{ bookingFormStore.luggageCount }} 件</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-neutral-600">總計</span>
+              <span class="text-neutral-900">NT$ {{ bookingFormStore.totalPrice }}</span>
+            </div>
+          </div>
+        </div>
+        <!-- 底部列（neutral-100） -->
+        <div
+          class="
+            relative flex items-center justify-between bg-neutral-100 px-4 py-4
+          "
+        >
+          <button
+            class="flex items-center gap-1"
+            @click="showPriceSummary = false"
+          >
+            <span class="text-base text-neutral-600">總計</span>
+            <span class="text-lg font-bold text-neutral-900">NT$ {{ bookingFormStore.totalPrice }}</span>
+            <Icon
+              name="carbon:chevron-down"
+              class="text-xl text-neutral-900"
+            />
+          </button>
+          <button
+            class="rounded-sm px-5 py-3 text-base font-medium transition-colors"
+            :class="isFormValid
+              ? 'bg-primary-300 text-white'
+              : 'bg-neutral-200 text-neutral-500'"
+            :disabled="!isFormValid"
+            @click="goToPayment"
+          >
+            選擇付款方式
+          </button>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 預約須知 Modal -->
+    <div
+      v-if="showTermsModal"
+      class="
+        absolute inset-0 flex items-center justify-center bg-neutral-900/50 px-4
+        backdrop-blur-sm
+      "
+      @click.self="showTermsModal = false"
+    >
+      <div
+        class="
+          flex max-h-[80vh] w-full flex-col rounded-sm border border-neutral-200
+          bg-white shadow-[0px_4px_12px_0px_rgba(32,78,184,0.04)]
+        "
+      >
+        <!-- 標題列 -->
+        <div class="flex shrink-0 items-center justify-between p-5 pb-4">
+          <h3 class="text-xl font-bold text-neutral-900">
+            預約須知
+          </h3>
+          <button
+            class="flex items-center justify-center p-2"
+            @click="showTermsModal = false"
+          >
+            <Icon
+              name="carbon:close"
+              class="text-2xl text-neutral-900"
+            />
+          </button>
+        </div>
+        <div class="mx-5 shrink-0 border-t border-neutral-200"></div>
+        <!-- 內容（可捲動） -->
+        <div class="flex-1 overflow-y-auto px-5 py-4">
+          <ol class="flex flex-col gap-6 text-base">
+            <li class="flex flex-col gap-2">
+              <span class="font-bold text-danger-300">1. 禁運物品</span>
+              <p class="leading-relaxed text-neutral-600">
+                嚴禁運送現金、貴重珠寶、易燃品、危險物品或活體動植物，詳細規定請詳閱禁運事項與運送規範。
+              </p>
+            </li>
+            <li class="flex flex-col gap-2">
+              <span class="font-bold text-neutral-900">2. 門市交付時限</span>
+              <p class="leading-relaxed text-neutral-600">
+                請於抵達小琉球後，最晚於 14:00 前將行李送至「你行李來」碼頭門市，以確保行李能於傍晚前送達民宿。
+              </p>
+            </li>
+            <li class="flex flex-col gap-2">
+              <span class="font-bold text-neutral-900">3. 行李標記</span>
+              <p class="leading-relaxed text-neutral-600">
+                交件時請主動出示預約或平台訂單編號，工作人員將現場為您的行李掛上專屬識別牌，並請確認上方資訊無誤。
+              </p>
+            </li>
+            <li class="flex flex-col gap-2">
+              <span class="font-bold text-neutral-900">4. 機車載運限制</span>
+              <p class="leading-relaxed text-neutral-600">
+                本服務旨在解決旅客騎機車載行李的危險與不便，若行李箱規格超過 29 吋或屬特殊大型物品（如潛水裝備箱），請務必於預約時標註。
+              </p>
+            </li>
+            <li class="flex flex-col gap-2">
+              <span class="font-bold text-neutral-900">5. 離島限定服務</span>
+              <p class="leading-relaxed text-neutral-600">
+                本服務運送範圍僅限小琉球島內民宿，恕不提供跨海（寄回台灣本島）之運送。
+              </p>
+            </li>
+            <li class="flex flex-col gap-2">
+              <span class="font-bold text-neutral-900">6. 取件憑證</span>
+              <p class="leading-relaxed text-neutral-600">
+                交付行李後請保留收執聯（或數位憑證），若需於民宿外之點位領回行李，請憑證取件。
+              </p>
+            </li>
+            <li class="flex flex-col gap-2">
+              <span class="font-bold text-neutral-900">7. 行李外觀檢查</span>
+              <p class="leading-relaxed text-neutral-600">
+                交付行李時，工作人員將與您共同確認行李箱外觀現況，如有明顯破損將現場記錄，以保障雙方權益。
+              </p>
+            </li>
+          </ol>
+        </div>
+        <!-- 按鈕 -->
+        <div class="shrink-0 p-5 pt-4">
+          <button
+            class="
+              w-full rounded-sm bg-primary-300 py-3 text-base font-medium
+              text-white
+            "
+            @click="showTermsModal = false"
+          >
+            我瞭解了
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
+
+<style scoped>
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: transform 0.25s ease;
+}
+.slide-up-enter-from,
+.slide-up-leave-to {
+  transform: translateY(100%);
+}
+</style>

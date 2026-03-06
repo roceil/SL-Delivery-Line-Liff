@@ -12,6 +12,7 @@ export default defineNuxtConfig({
       allowedHosts: [
         '.ngrok-free.app', // 允許所有 ngrok-free.app 子網域
         '.ngrok.io', // 如果使用付費版 ngrok
+        '.serveousercontent.com', // 允許 serveo 子網域
       ],
     },
   },

@@ -8,22 +8,25 @@ interface Props {
 const props = defineProps<Props>()
 
 const statusConfig = computed(() => {
-  const configs: Record<BookingStatus, { text: string, color: string }> = {
-    pending: { text: '待確認', color: 'bg-yellow-100 text-yellow-800' },
-    confirmed: { text: '已確認', color: 'bg-blue-100 text-blue-800' },
-    in_transit: { text: '運送中', color: 'bg-purple-100 text-purple-800' },
-    delivered: { text: '已送達', color: 'bg-green-100 text-green-800' },
-    cancelled: { text: '已取消', color: 'bg-gray-100 text-gray-800' },
+  const configs: Record<BookingStatus, { text: string, bg: string, color: string }> = {
+    pending: { text: '待交付', bg: '#fef0f0', color: '#d74f4f' },
+    confirmed: { text: '待出發', bg: '#fef0f0', color: '#d74f4f' },
+    in_transit: { text: '運送中', bg: '#eaf5ff', color: '#3087db' },
+    delivered: { text: '已完成', bg: '#e9f4ef', color: '#229464' },
+    cancelled: { text: '已取消', bg: '#f1f3f5', color: '#6c757d' },
   }
 
-  return configs[props.status] || { text: '未知', color: 'bg-gray-100 text-gray-800' }
+  return configs[props.status] || { text: '未知', bg: '#f1f3f5', color: '#6c757d' }
 })
 </script>
 
 <template>
   <span
-    class="inline-block rounded-full px-3 py-1 text-sm font-semibold"
-    :class="statusConfig.color"
+    class="
+      inline-block rounded-full px-2 py-0.5 text-[11px] font-medium
+      tracking-wide
+    "
+    :style="{ backgroundColor: statusConfig.bg, color: statusConfig.color }"
   >
     {{ statusConfig.text }}
   </span>
