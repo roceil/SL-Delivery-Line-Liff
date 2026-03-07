@@ -15,7 +15,7 @@ definePageMeta({
       "
     >
       <div class="flex flex-col items-center gap-2">
-        <NuxtImg
+        <img
           src="/payments/contact_us.svg"
           alt="Contact Support"
           class="h-[106px] w-[120px]"

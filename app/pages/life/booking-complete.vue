@@ -50,7 +50,7 @@ function viewOrder() {
         <!-- 成功狀態 -->
         <div class="flex flex-col items-center gap-2">
           <div class="size-[100px]">
-            <NuxtImg
+            <img
               src="/bookings/complete.svg"
               alt="Success"
               class="size-full object-contain"
