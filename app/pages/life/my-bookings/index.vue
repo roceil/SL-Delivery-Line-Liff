@@ -58,7 +58,7 @@ onMounted(async () => {
     <!-- 頁面標題 -->
     <div class="flex items-center gap-2">
       <Icon
-        name="carbon:receipt"
+        name="lucide:receipt"
         class="shrink-0 text-[20px] text-neutral-900"
       />
       <h1 class="flex-1 text-xl font-bold tracking-wide text-neutral-900">
@@ -89,7 +89,7 @@ onMounted(async () => {
         @click="currentTab = 'active'"
       >
         <Icon
-          name="carbon:delivery"
+          name="lucide:truck"
           class="text-base"
         />
         進行中
@@ -106,7 +106,7 @@ onMounted(async () => {
         @click="currentTab = 'completed'"
       >
         <Icon
-          name="carbon:checkmark-outline"
+          name="lucide:circle-check"
           class="text-base"
         />
         已完成
@@ -123,7 +123,7 @@ onMounted(async () => {
         @click="currentTab = 'cancelled'"
       >
         <Icon
-          name="carbon:close-outline"
+          name="lucide:circle-x"
           class="text-base"
         />
         已取消
@@ -161,7 +161,7 @@ onMounted(async () => {
           @click="currentPage--"
         >
           <Icon
-            name="carbon:chevron-left"
+            name="lucide:chevron-left"
             class="text-base text-neutral-900"
           />
         </button>
@@ -184,7 +184,7 @@ onMounted(async () => {
           @click="currentPage++"
         >
           <Icon
-            name="carbon:chevron-right"
+            name="lucide:chevron-right"
             class="text-base text-neutral-900"
           />
         </button>

@@ -160,7 +160,7 @@ onMounted(async () => {
           style="background: linear-gradient(31deg, #fff 0%, rgba(255,255,255,0.5) 100%)"
         >
           <Icon
-            name="carbon:notification"
+            name="lucide:bell"
             class="size-4 text-neutral-700"
           />
         </button>
@@ -199,7 +199,7 @@ onMounted(async () => {
                 {{ firstActiveOrder.pickupLocation.name }}
               </span>
               <Icon
-                name="carbon:arrow-right"
+                name="lucide:arrow-right"
                 class="size-4 shrink-0 text-neutral-500"
               />
               <span
@@ -232,7 +232,7 @@ onMounted(async () => {
               :style="{ paddingRight: `calc(${100 - getProgressPercent(firstActiveOrder.status)}% - 8px)` }"
             >
               <Icon
-                name="carbon:baggage-claim"
+                name="lucide:luggage"
                 class="size-4 text-primary-300"
               />
             </div>
@@ -298,7 +298,7 @@ onMounted(async () => {
             </div>
 
             <Icon
-              name="carbon:chevron-right"
+              name="lucide:chevron-right"
               class="size-5 shrink-0 text-neutral-500"
             />
           </NuxtLink>
@@ -318,7 +318,7 @@ onMounted(async () => {
               </p>
             </div>
             <Icon
-              name="carbon:chevron-right"
+              name="lucide:chevron-right"
               class="size-5 shrink-0 text-neutral-500"
             />
           </NuxtLink>
@@ -340,7 +340,7 @@ onMounted(async () => {
             style="background: linear-gradient(17deg, #fff 0%, rgba(255,255,255,0.5) 100%)"
           >
             <Icon
-              name="carbon:help"
+              name="lucide:circle-help"
               class="size-5 text-neutral-700"
             />
             <span class="text-md font-medium tracking-wide text-neutral-900">常見問題</span>
@@ -355,7 +355,7 @@ onMounted(async () => {
             style="background: linear-gradient(17deg, #fff 0%, rgba(255,255,255,0.5) 100%)"
           >
             <Icon
-              name="carbon:headset"
+              name="lucide:headset"
               class="size-5 text-neutral-700"
             />
             <span class="text-md font-medium tracking-wide text-neutral-900">聯絡客服</span>

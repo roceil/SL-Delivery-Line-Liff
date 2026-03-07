@@ -2,10 +2,10 @@
 const route = useRoute()
 
 const navItems = [
-  { name: '首頁', path: '/life', icon: 'carbon:home' },
-  { name: '我要預約', path: '/life/booking', icon: 'carbon:calendar' },
-  { name: '我的訂單', path: '/life/my-bookings', icon: 'carbon:receipt' },
-  { name: '我的', path: '/life/profile', icon: 'carbon:user' },
+  { name: '首頁', path: '/life', icon: 'lucide:home' },
+  { name: '我要預約', path: '/life/booking', icon: 'lucide:calendar' },
+  { name: '我的訂單', path: '/life/my-bookings', icon: 'lucide:file' },
+  { name: '我的', path: '/life/profile', icon: 'lucide:user' },
 ]
 
 function isNavActive(path: string) {
@@ -17,7 +17,7 @@ function isNavActive(path: string) {
 
 <template>
   <div
-    class="flex flex-col bg-[#f0f4f8]"
+    class="flex flex-col"
     style="height: 100dvh;"
   >
     <!-- Content -->
@@ -43,15 +43,18 @@ function isNavActive(path: string) {
           <Icon
             :name="item.icon"
             class="size-5"
-            :class="isNavActive(item.path) ? 'text-primary-300' : `
+            :class="isNavActive(item.path) ? 'text-[#4090E8]' : `
               text-neutral-500
             `"
           />
           <span
             class="text-xs font-medium tracking-wide"
-            :class="isNavActive(item.path) ? 'text-primary-300' : `
-              text-neutral-500
-            `"
+            :class="isNavActive(item.path)
+              ? `
+                bg-[linear-gradient(131deg,#4090E8_16.25%,#306CF7_61.77%)]
+                bg-clip-text text-transparent
+              `
+              : 'text-neutral-500'"
           >
             {{ item.name }}
           </span>

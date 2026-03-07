@@ -13,9 +13,9 @@ const submitError = ref('')
 const showConfirmModal = ref(false)
 
 const paymentOptions = [
-  { id: 'line_pay' as const, label: 'LINE Pay', icon: 'simple-icons:line' },
-  { id: 'credit_card' as const, label: '信用卡', icon: 'carbon:wallet' },
-  { id: 'apple_pay' as const, label: 'Apple Pay', icon: 'ic:baseline-apple' },
+  { id: 'line_pay' as const, label: 'LINE Pay', image: '/payments/LinePay.png', imageClass: 'h-4' },
+  { id: 'credit_card' as const, label: '信用卡', image: '/payments/Visa.png', image2: '/payments/Mastercard.png' },
+  { id: 'apple_pay' as const, label: 'Apple Pay', image: '/payments/ApplePay.png' },
 ]
 
 // 格式化日期
@@ -80,7 +80,7 @@ async function confirmSubmit() {
           @click="router.back()"
         >
           <Icon
-            name="carbon:chevron-left"
+            name="lucide:chevron-left"
             class="text-2xl text-neutral-900"
           />
         </button>
@@ -92,7 +92,7 @@ async function confirmSubmit() {
           @click="router.push('/life')"
         >
           <Icon
-            name="carbon:close"
+            name="lucide:x"
             class="text-2xl text-neutral-900"
           />
         </button>
@@ -178,7 +178,7 @@ async function confirmSubmit() {
           </div>
 
           <!-- 路線 -->
-          <div class="mb-4 flex flex-col gap-2">
+          <div class="mb-4 flex flex-col gap-3">
             <div class="flex items-center gap-2 rounded-sm bg-primary-100 p-3">
               <div
                 class="
@@ -187,7 +187,7 @@ async function confirmSubmit() {
                 "
               >
                 <Icon
-                  name="carbon:send"
+                  name="lucide:send"
                   class="text-xl text-primary-300"
                 />
               </div>
@@ -195,7 +195,7 @@ async function confirmSubmit() {
             </div>
             <div class="flex justify-center">
               <Icon
-                name="carbon:arrows-vertical"
+                :name="bookingFormStore.serviceType === 'round_trip' ? 'lucide:arrow-down-up' : 'lucide:arrow-down'"
                 class="text-2xl text-neutral-600"
               />
             </div>
@@ -207,7 +207,7 @@ async function confirmSubmit() {
                 "
               >
                 <Icon
-                  name="carbon:location"
+                  name="lucide:map-pin"
                   class="text-xl text-primary-300"
                 />
               </div>
@@ -275,16 +275,19 @@ async function confirmSubmit() {
               <!-- Radio -->
               <div
                 class="
-                  flex size-5 items-center justify-center rounded-full border-2
+                  flex size-5 shrink-0 items-center justify-center rounded-full
                   transition-colors
                 "
-                :class="bookingFormStore.paymentMethod === option.id
-                  ? 'border-primary-300'
-                  : 'border-neutral-300'"
+                :class="bookingFormStore.paymentMethod === option.id ? '' : `
+                  border-2 border-neutral-300
+                `"
+                :style="bookingFormStore.paymentMethod === option.id
+                  ? 'background: linear-gradient(131deg, #4090E8 16.25%, #306CF7 61.77%)'
+                  : ''"
               >
                 <div
                   v-if="bookingFormStore.paymentMethod === option.id"
-                  class="size-2.5 rounded-full bg-primary-300"
+                  class="size-2 rounded-full bg-white"
                 ></div>
               </div>
               <input
@@ -294,10 +297,20 @@ async function confirmSubmit() {
                 class="sr-only"
               >
               <span class="flex-1 text-base font-medium text-neutral-900">{{ option.label }}</span>
-              <Icon
-                :name="option.icon"
-                class="text-2xl text-neutral-600"
-              />
+              <div class="flex items-center gap-1">
+                <NuxtImg
+                  :src="option.image"
+                  :alt="option.label"
+                  class="w-auto object-contain"
+                  :class="option.imageClass ?? 'h-6'"
+                />
+                <NuxtImg
+                  v-if="option.image2"
+                  :src="option.image2"
+                  :alt="option.label"
+                  class="h-6 w-auto object-contain"
+                />
+              </div>
             </label>
           </div>
         </div>

@@ -33,13 +33,13 @@ const showVoucherButton = computed(() =>
       <div class="flex min-w-0 flex-1 items-center gap-2">
         <span class="truncate text-base font-bold text-neutral-900">{{ order.pickupLocation.name }}</span>
         <Icon
-          name="carbon:arrows-horizontal"
+          name="lucide:move-horizontal"
           class="shrink-0 text-base text-neutral-600"
         />
         <span class="truncate text-base font-bold text-neutral-900">{{ order.deliveryLocation.name }}</span>
       </div>
       <Icon
-        name="carbon:chevron-right"
+        name="lucide:chevron-right"
         class="shrink-0 text-[20px] text-neutral-600"
       />
     </div>

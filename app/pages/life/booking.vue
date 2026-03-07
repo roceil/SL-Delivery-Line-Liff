@@ -32,7 +32,7 @@ const servicePlans = [
     subtitle: '去程 + 回程',
     price: 250,
     badge: '推薦',
-    icon: 'carbon:arrows-horizontal',
+    icon: 'lucide:arrow-left-right',
   },
   {
     id: 'one_way' as const,
@@ -40,7 +40,7 @@ const servicePlans = [
     subtitle: '碼頭 → 民宿\n或民宿 → 碼頭',
     price: 130,
     badge: null,
-    icon: 'carbon:arrow-right',
+    icon: 'lucide:arrow-right',
   },
 ]
 
@@ -60,6 +60,7 @@ const isFormValid = computed(() => {
     && bookingFormStore.pickupLocation !== null
     && bookingFormStore.deliveryLocation !== null
     && bookingFormStore.bookingDate !== ''
+    && (bookingFormStore.serviceType !== 'round_trip' || bookingFormStore.returnDate !== '')
     && bookingFormStore.recipientName !== ''
     && bookingFormStore.recipientPhone !== ''
   )
@@ -70,6 +71,14 @@ onMounted(async () => {
     locationsStore.fetchLocations(),
     profileStore.initProfile(),
   ])
+
+  // 自動選取寄件地點為門市（你行李來）
+  if (!bookingFormStore.pickupLocation) {
+    const storeLocation = locations.value.find(l => l.name.includes('你行李來'))
+      ?? locations.value[0]
+      ?? null
+    bookingFormStore.pickupLocation = storeLocation
+  }
 
   // 自動填入聯絡人資訊
   if (!bookingFormStore.recipientName) {
@@ -189,11 +198,15 @@ const today = computed(() => new Date().toISOString().split('T')[0])
               <div
                 v-if="plan.badge"
                 class="
-                  absolute top-2 left-[99px] rounded-full bg-success-100 px-2
-                  py-0.5
+                  absolute top-2 right-3 flex items-center justify-center
+                  rounded-full bg-success-100 px-2 py-0.5
                 "
               >
-                <span class="text-[11px] font-medium text-success-300">{{ plan.badge }}</span>
+                <span
+                  class="
+                    text-[11px] font-medium whitespace-nowrap text-success-300
+                  "
+                >{{ plan.badge }}</span>
               </div>
               <!-- Icon -->
               <div
@@ -215,7 +228,8 @@ const today = computed(() => new Date().toISOString().split('T')[0])
                 <span class="text-base font-bold text-neutral-900">{{ plan.label }}</span>
                 <span
                   class="
-                    text-sm leading-relaxed whitespace-pre-line text-neutral-600
+                    min-h-[45.5px] text-sm leading-relaxed whitespace-pre-line
+                    text-neutral-600
                   "
                 >{{ plan.subtitle }}</span>
               </div>
@@ -258,7 +272,7 @@ const today = computed(() => new Date().toISOString().split('T')[0])
               @click="bookingFormStore.luggageCount > 1 && bookingFormStore.luggageCount--"
             >
               <Icon
-                name="carbon:subtract"
+                name="lucide:minus"
                 class="text-xl text-neutral-900"
               />
             </button>
@@ -269,7 +283,7 @@ const today = computed(() => new Date().toISOString().split('T')[0])
               @click="bookingFormStore.luggageCount < 10 && bookingFormStore.luggageCount++"
             >
               <Icon
-                name="carbon:add"
+                name="lucide:plus"
                 class="text-xl text-neutral-900"
               />
             </button>
@@ -322,7 +336,7 @@ const today = computed(() => new Date().toISOString().split('T')[0])
                 </option>
               </select>
               <Icon
-                name="carbon:chevron-down"
+                name="lucide:chevron-down"
                 class="
                   pointer-events-none absolute top-1/2 right-2 -translate-y-1/2
                   text-neutral-500
@@ -338,7 +352,7 @@ const today = computed(() => new Date().toISOString().split('T')[0])
               @click="swapLocations"
             >
               <Icon
-                name="carbon:arrows-vertical"
+                :name="bookingFormStore.serviceType === 'round_trip' ? 'lucide:arrow-down-up' : 'lucide:arrow-down'"
                 class="text-2xl text-neutral-600"
               />
             </button>
@@ -364,7 +378,7 @@ const today = computed(() => new Date().toISOString().split('T')[0])
                   value=""
                   disabled
                 >
-                  僅限小琉球島內之合法民宿
+                  僅限小琉球島內民宿
                 </option>
                 <option
                   v-for="loc in deliveryOptions"
@@ -375,7 +389,7 @@ const today = computed(() => new Date().toISOString().split('T')[0])
                 </option>
               </select>
               <Icon
-                name="carbon:chevron-down"
+                name="lucide:chevron-down"
                 class="
                   pointer-events-none absolute top-1/2 right-2 -translate-y-1/2
                   text-neutral-500
@@ -395,23 +409,46 @@ const today = computed(() => new Date().toISOString().split('T')[0])
             shadow-[0px_4px_32px_0px_rgba(32,78,184,0.08)]
           "
         >
-          <div class="mb-4 flex items-center gap-2">
+          <div class="mb-5 flex items-center gap-2">
             <div
               class="w-1 self-stretch rounded-xs"
               style="background: linear-gradient(101deg, #4090E8 16%, #306CF7 62%);"
             ></div>
             <span class="text-base font-bold text-neutral-900">寄件日期</span>
           </div>
-          <input
-            v-model="bookingFormStore.bookingDate"
-            type="date"
-            :min="today"
-            class="
-              w-full rounded-xs border border-neutral-200 bg-white px-3 py-2
-              text-base text-neutral-900
-              focus:ring-1 focus:ring-primary-300 focus:outline-none
-            "
-          >
+          <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-1">
+              <label class="text-sm font-medium text-neutral-600">
+                {{ bookingFormStore.serviceType === 'round_trip' ? '去程' : '' }}
+              </label>
+              <input
+                v-model="bookingFormStore.bookingDate"
+                type="date"
+                :min="today"
+                class="
+                  w-full rounded-xs border border-neutral-200 bg-white px-3 py-2
+                  text-base text-neutral-900
+                  focus:ring-1 focus:ring-primary-300 focus:outline-none
+                "
+              >
+            </div>
+            <div
+              v-if="bookingFormStore.serviceType === 'round_trip'"
+              class="flex flex-col gap-1"
+            >
+              <label class="text-sm font-medium text-neutral-600">回程</label>
+              <input
+                v-model="bookingFormStore.returnDate"
+                type="date"
+                :min="bookingFormStore.bookingDate || today"
+                class="
+                  w-full rounded-xs border border-neutral-200 bg-white px-3 py-2
+                  text-base text-neutral-900
+                  focus:ring-1 focus:ring-primary-300 focus:outline-none
+                "
+              >
+            </div>
+          </div>
         </div>
 
         <!-- 領件人資訊 -->
@@ -537,7 +574,7 @@ const today = computed(() => new Date().toISOString().split('T')[0])
           <span class="text-base text-neutral-600">總計</span>
           <span class="text-lg font-bold text-neutral-900">NT$ {{ bookingFormStore.totalPrice }}</span>
           <Icon
-            :name="showPriceSummary ? 'carbon:chevron-down' : 'carbon:chevron-up'"
+            :name="showPriceSummary ? 'lucide:chevron-down' : 'lucide:chevron-up'"
             class="text-xl text-neutral-900"
           />
         </button>
@@ -576,7 +613,7 @@ const today = computed(() => new Date().toISOString().split('T')[0])
               @click="showPriceSummary = false"
             >
               <Icon
-                name="carbon:close"
+                name="lucide:x"
                 class="text-2xl text-neutral-900"
               />
             </button>
@@ -616,7 +653,7 @@ const today = computed(() => new Date().toISOString().split('T')[0])
             <span class="text-base text-neutral-600">總計</span>
             <span class="text-lg font-bold text-neutral-900">NT$ {{ bookingFormStore.totalPrice }}</span>
             <Icon
-              name="carbon:chevron-down"
+              name="lucide:chevron-down"
               class="text-xl text-neutral-900"
             />
           </button>
@@ -659,7 +696,7 @@ const today = computed(() => new Date().toISOString().split('T')[0])
             @click="showTermsModal = false"
           >
             <Icon
-              name="carbon:close"
+              name="lucide:x"
               class="text-2xl text-neutral-900"
             />
           </button>

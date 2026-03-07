@@ -16,6 +16,7 @@ export const useBookingFormStore = defineStore('booking-form', () => {
   const pickupLocation = ref<Location | null>(null)
   const deliveryLocation = ref<Location | null>(null)
   const bookingDate = ref('')
+  const returnDate = ref('')
   const recipientName = ref('')
   const recipientPhone = ref('')
   const notes = ref('')
@@ -59,6 +60,7 @@ export const useBookingFormStore = defineStore('booking-form', () => {
     pickupLocation.value = null
     deliveryLocation.value = null
     bookingDate.value = ''
+    returnDate.value = ''
     recipientName.value = ''
     recipientPhone.value = ''
     notes.value = ''
@@ -78,6 +80,7 @@ export const useBookingFormStore = defineStore('booking-form', () => {
     pickupLocation,
     deliveryLocation,
     bookingDate,
+    returnDate,
     recipientName,
     recipientPhone,
     notes,

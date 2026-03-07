@@ -88,12 +88,12 @@ async function copyToClipboard(text: string) {
 
 // ── 訂單步驟 ──────────────────────────────────────────────
 const steps = [
-  { label: '訂單確認中', icon: 'carbon:receipt' },
-  { label: '訂單成立，待交付行李', icon: 'carbon:package' },
-  { label: '已收件', icon: 'carbon:store' },
-  { label: '運送中', icon: 'carbon:delivery' },
-  { label: '已送達', icon: 'carbon:location' },
-  { label: '已完成', icon: 'carbon:checkmark' },
+  { label: '訂單確認中', icon: 'lucide:receipt' },
+  { label: '訂單成立，待交付行李', icon: 'lucide:package' },
+  { label: '已收件', icon: 'lucide:store' },
+  { label: '運送中', icon: 'lucide:truck' },
+  { label: '已送達', icon: 'lucide:map-pin' },
+  { label: '已完成', icon: 'lucide:check' },
 ]
 
 const activeStepIndex = computed(() => {
@@ -264,7 +264,7 @@ const sheetStyle = computed(() => {
           class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full"
         >
           <Icon
-            name="carbon:location-filled"
+            name="lucide:map-pin"
             class="text-3xl text-primary-300"
           />
         </div>
@@ -310,7 +310,7 @@ const sheetStyle = computed(() => {
               {{ order.pickupLocation.name }}
             </span>
             <Icon
-              name="carbon:arrows-horizontal"
+              name="lucide:move-horizontal"
               class="shrink-0 text-base text-neutral-600"
             />
             <span class="flex-1 truncate text-xl font-bold text-neutral-900">
@@ -336,7 +336,7 @@ const sheetStyle = computed(() => {
                   運送紀錄
                 </h2>
                 <Icon
-                  name="carbon:chevron-right"
+                  name="lucide:chevron-right"
                   class="text-xl text-neutral-600"
                 />
               </div>
@@ -361,7 +361,7 @@ const sheetStyle = computed(() => {
                   >
                     <span class="shrink-0">{{ order.pickupLocation.name }}</span>
                     <Icon
-                      name="carbon:arrow-right"
+                      name="lucide:arrow-right"
                       class="shrink-0 text-xs"
                     />
                     <span class="truncate">{{ order.deliveryLocation.name }}</span>
@@ -437,7 +437,7 @@ const sheetStyle = computed(() => {
             <div class="flex flex-col gap-3 bg-white p-5">
               <div class="flex items-center gap-1">
                 <Icon
-                  name="carbon:receipt"
+                  name="lucide:receipt"
                   class="text-sm text-neutral-900"
                 />
                 <h2 class="flex-1 text-lg font-bold text-neutral-900">
@@ -452,7 +452,7 @@ const sheetStyle = computed(() => {
                 >
                   <div class="flex rounded-rounded bg-[#e4effb] p-2">
                     <Icon
-                      name="carbon:store"
+                      name="lucide:store"
                       class="text-xl text-primary-300"
                     />
                   </div>
@@ -462,7 +462,7 @@ const sheetStyle = computed(() => {
                 </div>
                 <div class="flex justify-center">
                   <Icon
-                    name="carbon:up-down"
+                    name="lucide:move-vertical"
                     class="text-2xl text-neutral-600"
                   />
                 </div>
@@ -471,7 +471,7 @@ const sheetStyle = computed(() => {
                 >
                   <div class="flex rounded-rounded bg-[#e4effb] p-2">
                     <Icon
-                      name="carbon:location"
+                      name="lucide:map-pin"
                       class="text-xl text-primary-300"
                     />
                   </div>
@@ -493,7 +493,7 @@ const sheetStyle = computed(() => {
                     @click="copyToClipboard(order.voucherId || order.id)"
                   >
                     <Icon
-                      name="carbon:copy"
+                      name="lucide:copy"
                       class="text-sm text-neutral-600"
                     />
                   </button>
@@ -521,14 +521,14 @@ const sheetStyle = computed(() => {
                 @click="isCheckoutOpen = !isCheckoutOpen"
               >
                 <Icon
-                  name="carbon:wallet"
+                  name="lucide:wallet"
                   class="text-sm text-neutral-900"
                 />
                 <h2 class="flex-1 text-left text-lg font-bold text-neutral-900">
                   結帳明細
                 </h2>
                 <Icon
-                  :name="isCheckoutOpen ? 'carbon:chevron-up' : 'carbon:chevron-down'"
+                  :name="isCheckoutOpen ? 'lucide:chevron-up' : 'lucide:chevron-down'"
                   class="text-2xl text-neutral-600"
                 />
               </button>
@@ -575,14 +575,14 @@ const sheetStyle = computed(() => {
                 @click="isRecipientOpen = !isRecipientOpen"
               >
                 <Icon
-                  name="carbon:user"
+                  name="lucide:user"
                   class="text-sm text-neutral-900"
                 />
                 <h2 class="flex-1 text-left text-lg font-bold text-neutral-900">
                   領件人
                 </h2>
                 <Icon
-                  :name="isRecipientOpen ? 'carbon:chevron-up' : 'carbon:chevron-down'"
+                  :name="isRecipientOpen ? 'lucide:chevron-up' : 'lucide:chevron-down'"
                   class="text-2xl text-neutral-600"
                 />
               </button>

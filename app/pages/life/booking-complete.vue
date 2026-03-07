@@ -21,6 +21,10 @@ const paymentMethodLabel = computed(() => {
   return map[bookingFormStore.paymentMethod] || ''
 })
 
+function copyToClipboard(text: string) {
+  navigator.clipboard.writeText(text)
+}
+
 function goBack() {
   bookingFormStore.reset()
   router.push('/life/query')
@@ -40,107 +44,23 @@ function viewOrder() {
 
 <template>
   <div class="flex h-full flex-col">
-    <!-- Header -->
-    <header
-      class="shrink-0 rounded-b-sm"
-      style="background: linear-gradient(16deg, rgb(255,255,255) 0%, rgba(255,255,255,0.5) 100%);"
-    >
-      <!-- Nav bar -->
-      <div class="flex items-center justify-center p-1">
-        <div class="flex items-center justify-center p-2 opacity-0">
-          <Icon
-            name="carbon:chevron-left"
-            class="text-2xl"
-          />
-        </div>
-        <div class="flex flex-1 items-center justify-center">
-          <span class="text-lg font-bold tracking-wide text-neutral-900">你行李來</span>
-        </div>
-        <button
-          class="flex items-center justify-center p-2"
-          @click="router.push('/life')"
-        >
-          <Icon
-            name="carbon:close"
-            class="text-2xl text-neutral-900"
-          />
-        </button>
-      </div>
-
-      <!-- Stepper（全部完成） -->
-      <div class="flex items-center border-b border-white py-4">
-        <!-- Step 1: 填寫資料 -->
-        <div class="flex flex-1 flex-col items-center gap-1">
-          <div class="flex w-full items-center">
-            <div class="h-0.5 flex-1"></div>
-            <div
-              class="
-                flex size-8 items-center justify-center rounded-full
-                bg-primary-300
-              "
-            >
-              <span class="text-xs font-medium text-white">1</span>
-            </div>
-            <div class="h-0.5 flex-1 bg-primary-300"></div>
-          </div>
-          <span class="text-sm font-bold text-primary-300">填寫資料</span>
-        </div>
-        <!-- Step 2: 選擇付款方式 -->
-        <div class="flex flex-1 flex-col items-center gap-1">
-          <div class="flex w-full items-center">
-            <div class="h-0.5 flex-1 bg-primary-300"></div>
-            <div
-              class="
-                flex size-8 items-center justify-center rounded-full
-                bg-primary-300
-              "
-            >
-              <span class="text-xs font-medium text-white">2</span>
-            </div>
-            <div class="h-0.5 flex-1 bg-primary-300"></div>
-          </div>
-          <span class="text-sm font-bold text-primary-300">選擇付款方式</span>
-        </div>
-        <!-- Step 3: 完成預約（active） -->
-        <div class="flex flex-1 flex-col items-center gap-1">
-          <div class="flex w-full items-center">
-            <div class="h-0.5 flex-1 bg-primary-300"></div>
-            <div
-              class="
-                flex size-8 items-center justify-center rounded-full
-                bg-primary-300
-              "
-            >
-              <span class="text-xs font-medium text-white">3</span>
-            </div>
-            <div class="h-0.5 flex-1"></div>
-          </div>
-          <span class="text-sm font-bold text-primary-300">完成預約</span>
-        </div>
-      </div>
-    </header>
-
     <!-- Main Content -->
     <main class="flex-1 overflow-y-auto px-4 py-6">
       <div class="flex flex-col gap-4">
         <!-- 成功狀態 -->
         <div class="flex flex-col items-center gap-2">
-          <div
-            class="
-              flex size-24 items-center justify-center rounded-full
-              bg-success-100
-            "
-          >
-            <Icon
-              name="carbon:checkmark"
-              class="text-5xl text-success-300"
+          <div class="size-[100px]">
+            <NuxtImg
+              src="/bookings/complete.svg"
+              alt="Success"
+              class="size-full object-contain"
             />
           </div>
           <div class="flex flex-col gap-1 text-center">
             <h2 class="text-2xl font-bold tracking-wide text-neutral-900">
               訂單已送出！
             </h2>
-            <div class="text-sm font-medium text-neutral-600">
+            <div class="text-sm text-neutral-600">
               <p>請稍候工作人員確認預約申請</p>
               <p>您可以隨時在「我的訂單」查看進度</p>
             </div>
@@ -173,7 +93,7 @@ function viewOrder() {
                 "
               >
                 <Icon
-                  name="carbon:send"
+                  name="lucide:send"
                   class="text-xl text-primary-300"
                 />
               </div>
@@ -181,7 +101,7 @@ function viewOrder() {
             </div>
             <div class="flex justify-center">
               <Icon
-                name="carbon:arrow-down"
+                name="lucide:arrow-down"
                 class="text-2xl text-neutral-600"
               />
             </div>
@@ -193,7 +113,7 @@ function viewOrder() {
                 "
               >
                 <Icon
-                  name="carbon:location"
+                  name="lucide:map-pin"
                   class="text-xl text-primary-300"
                 />
               </div>
@@ -209,10 +129,10 @@ function viewOrder() {
                 <span class="text-neutral-900">{{ bookingFormStore.createdVoucherId || '—' }}</span>
                 <button
                   v-if="bookingFormStore.createdVoucherId"
-                  @click="navigator.clipboard.writeText(bookingFormStore.createdVoucherId!)"
+                  @click="copyToClipboard(bookingFormStore.createdVoucherId!)"
                 >
                   <Icon
-                    name="carbon:copy"
+                    name="lucide:copy"
                     class="text-base text-neutral-500"
                   />
                 </button>
@@ -337,19 +257,19 @@ function viewOrder() {
 
     <!-- Bottom Navigation -->
     <footer
-      class="shrink-0 rounded-t-lg border border-white backdrop-blur-md"
+      class="shrink-0 rounded-t-lg border border-white pb-6 backdrop-blur-md"
       style="background: linear-gradient(10deg, rgb(255,255,255) 0%, rgba(255,255,255,0.5) 100%); box-shadow: 0px -4px 20px 0px rgba(32,78,184,0.12);"
     >
       <div class="flex gap-2 px-5 py-3">
-        <button
+        <NuxtLink
+          to="/life/booking"
           class="
             flex flex-1 items-center justify-center rounded-sm border
             border-neutral-200 bg-white px-5 py-3
           "
-          @click="goBack"
         >
           <span class="text-base font-medium text-neutral-900">再次預約</span>
-        </button>
+        </NuxtLink>
         <button
           class="
             flex flex-1 items-center justify-center rounded-sm bg-primary-300
@@ -359,10 +279,6 @@ function viewOrder() {
         >
           <span class="text-base font-medium text-white">查看訂單進度</span>
         </button>
-      </div>
-      <!-- Home Indicator -->
-      <div class="flex items-center justify-center px-2 pt-5 pb-2">
-        <div class="h-[5px] w-[134px] rounded-full bg-black"></div>
       </div>
     </footer>
   </div>

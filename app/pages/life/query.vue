@@ -189,7 +189,7 @@ function readImageFile(file: File): Promise<ImageData> {
           @click="showFallback ? (showFallback = false) : router.push('/life')"
         >
           <Icon
-            name="carbon:chevron-left"
+            name="lucide:chevron-left"
             class="text-2xl text-neutral-900"
           />
         </button>
@@ -201,7 +201,7 @@ function readImageFile(file: File): Promise<ImageData> {
           @click="router.push('/life')"
         >
           <Icon
-            name="carbon:close"
+            name="lucide:x"
             class="text-2xl text-neutral-900"
           />
         </button>
@@ -301,7 +301,7 @@ function readImageFile(file: File): Promise<ImageData> {
               "
             >
               <Icon
-                name="carbon:qr-code"
+                name="lucide:qr-code"
                 class="text-3xl text-primary-300"
               />
             </div>
