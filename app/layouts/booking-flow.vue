@@ -23,7 +23,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="h-screen overflow-hidden bg-neutral-100">
+  <div
+    class="overflow-hidden bg-neutral-100"
+    style="height: 100dvh;"
+  >
     <div
       v-if="isLoading"
       class="flex h-full items-center justify-center"

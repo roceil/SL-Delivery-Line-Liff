@@ -10,10 +10,13 @@ export default defineNuxtConfig({
     ],
     server: {
       allowedHosts: [
-        '.ngrok-free.app', // 允許所有 ngrok-free.app 子網域
-        '.ngrok.io', // 如果使用付費版 ngrok
-        '.serveousercontent.com', // 允許 serveo 子網域
+        'lq-porter-dev.starlines.com.tw',
       ],
+      hmr: {
+        host: 'lq-porter-dev.starlines.com.tw',
+        protocol: 'wss',
+        clientPort: 443,
+      },
     },
   },
 
@@ -39,6 +42,10 @@ export default defineNuxtConfig({
     head: {
       meta: [
         { name: 'description', content: appDescription },
+        {
+          name: 'viewport',
+          content: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover',
+        },
       ],
     },
   },

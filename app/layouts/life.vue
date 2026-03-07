@@ -16,19 +16,22 @@ function isNavActive(path: string) {
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col bg-[#f0f4f8]">
+  <div
+    class="flex flex-col bg-[#f0f4f8]"
+    style="height: 100dvh;"
+  >
     <!-- Content -->
-    <main class="flex-1 overflow-y-auto pb-[90px]">
-      <slot />
+    <main class="flex-1 overflow-y-auto">
+      <slot></slot>
     </main>
 
     <!-- Bottom Navigation -->
     <nav
       class="
-        fixed right-0 bottom-0 left-0 overflow-hidden rounded-tl-lg
-        rounded-tr-lg border border-neutral-0 shadow-top-100
+        shrink-0 overflow-hidden rounded-tl-lg rounded-tr-lg border
+        border-neutral-0 pb-5 shadow-top-100
       "
-      style="background: linear-gradient(8deg, #fff 0%, rgba(255,255,255,0.5) 100%); backdrop-filter: blur(12px);"
+      style="background: linear-gradient(8deg, #fff 0%, rgba(255,255,255,0.5) 100%); backdrop-filter: blur(12px); padding-bottom: calc(-18px + env(safe-area-inset-bottom));"
     >
       <div class="flex items-center gap-xl px-xl pt-xs">
         <NuxtLink
@@ -53,10 +56,6 @@ function isNavActive(path: string) {
             {{ item.name }}
           </span>
         </NuxtLink>
-      </div>
-      <!-- Home Indicator -->
-      <div class="flex justify-center pb-2 pt-5">
-        <div class="h-[5px] w-[134px] rounded-rounded bg-black/20" />
       </div>
     </nav>
   </div>

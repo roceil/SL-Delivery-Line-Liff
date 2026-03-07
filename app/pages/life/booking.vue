@@ -520,7 +520,7 @@ const today = computed(() => new Date().toISOString().split('T')[0])
       class="
         relative shrink-0 rounded-t-lg border border-white backdrop-blur-md
       "
-      style="background: linear-gradient(10deg, rgb(255,255,255) 0%, rgba(255,255,255,0.5) 100%); box-shadow: 0px -4px 20px 0px rgba(32,78,184,0.12);"
+      style="background: linear-gradient(10deg, rgb(255,255,255) 0%, rgba(255,255,255,0.5) 100%); box-shadow: 0px -4px 20px 0px rgba(32,78,184,0.12); padding-bottom: calc(-10px + env(safe-area-inset-bottom));"
     >
       <!-- 未展開時的全區點擊攔截層 -->
       <div
@@ -552,10 +552,6 @@ const today = computed(() => new Date().toISOString().split('T')[0])
         >
           選擇付款方式
         </button>
-      </div>
-      <!-- Home Indicator -->
-      <div class="flex items-center justify-center px-2 pt-5 pb-2">
-        <div class="h-[5px] w-[134px] rounded-full bg-black"></div>
       </div>
     </footer>
 
@@ -610,6 +606,7 @@ const today = computed(() => new Date().toISOString().split('T')[0])
         <div
           class="
             relative flex items-center justify-between bg-neutral-100 px-4 py-4
+            pb-6
           "
         >
           <button

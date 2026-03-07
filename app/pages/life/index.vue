@@ -55,6 +55,13 @@ onMounted(async () => {
   await initLiff(config.public.liffId as string)
   isLoading.value = false
 
+  console.log('[LIFF Debug]', {
+    isInitialized: isInitialized.value,
+    isLoggedIn: isLoggedIn.value,
+    error: error.value,
+    liffId: config.public.liffId,
+  })
+
   if (!isInitialized.value || !isLoggedIn.value) {
     login()
     return
