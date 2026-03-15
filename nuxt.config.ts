@@ -51,8 +51,10 @@ export default defineNuxtConfig({
   },
 
   icon: {
-    mode: 'css',
-    cssLayer: 'base', // for TailwindCSS v4
+    mode: 'svg',
+    clientBundle: {
+      scan: true,
+    },
   },
 
   colorMode: {

@@ -41,6 +41,7 @@
     "vue-tsc": "^3.0.5"
   },
   "dependencies": {
+    "@iconify-json/lucide": "^1.2.98",
     "@line/bot-sdk": "^10.5.0",
     "@line/liff": "^2.27.3",
     "@nuxt/fonts": "^0.11.4",
