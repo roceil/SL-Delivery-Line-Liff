@@ -85,6 +85,10 @@ export default defineNuxtConfig({
     // Server-only (不會暴露到客戶端)
     lineChannelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
     lineChannelSecret: process.env.LINE_CHANNEL_SECRET,
+    newebpayMerchantId: process.env.NEWEBPAY_MERCHANT_ID,
+    newebpayHashKey: process.env.NEWEBPAY_HASH_KEY,
+    newebpayHashIV: process.env.NEWEBPAY_HASH_IV,
+    newebpayApiUrl: process.env.NEWEBPAY_API_URL,
 
     // Public (會暴露到客戶端)
     public: {

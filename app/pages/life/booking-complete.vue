@@ -4,7 +4,39 @@ definePageMeta({
 })
 
 const router = useRouter()
+const route = useRoute()
 const bookingFormStore = useBookingFormStore()
+
+// 藍新金流回調結果（從 URL query params 取得）
+const paymentStatus = computed(() => {
+  const status = route.query.Status as string | undefined
+  if (!status)
+    return null
+  return status === 'SUCCESS' ? 'success' : 'failed'
+})
+
+const paymentMessage = computed(() => {
+  const status = route.query.Status as string | undefined
+  if (!status)
+    return ''
+  if (status === 'SUCCESS')
+    return '付款成功！'
+  return `付款失敗（${status}）`
+})
+
+// 若 store 中無訂單資料（付款後返回時 store 已清空），嘗試從 sessionStorage 還原
+onMounted(() => {
+  if (!bookingFormStore.createdOrderId) {
+    const orderId = sessionStorage.getItem('payment_order_id')
+    const voucherId = sessionStorage.getItem('payment_voucher_id')
+    if (orderId) {
+      bookingFormStore.setCreatedOrder(orderId, voucherId || undefined)
+    }
+  }
+  // 清除 sessionStorage
+  sessionStorage.removeItem('payment_order_id')
+  sessionStorage.removeItem('payment_voucher_id')
+})
 
 function formatDate(date: string) {
   if (!date)
@@ -25,11 +57,6 @@ function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text)
 }
 
-function goBack() {
-  bookingFormStore.reset()
-  router.push('/life/query')
-}
-
 function viewOrder() {
   const orderId = bookingFormStore.createdOrderId
   bookingFormStore.reset()
@@ -47,18 +74,45 @@ function viewOrder() {
     <!-- Main Content -->
     <main class="flex-1 overflow-y-auto px-4 py-6">
       <div class="flex flex-col gap-4">
-        <!-- 成功狀態 -->
-        <div class="flex flex-col items-center gap-2">
+        <!-- 付款失敗狀態 -->
+        <div
+          v-if="paymentStatus === 'failed'"
+          class="flex flex-col items-center gap-2"
+        >
+          <div class="flex size-[100px] items-center justify-center">
+            <Icon
+              name="lucide:circle-x"
+              class="size-full text-danger-300"
+            />
+          </div>
+          <div class="flex flex-col gap-1 text-center">
+            <h2 class="text-2xl font-bold tracking-wide text-neutral-900">
+              付款未完成
+            </h2>
+            <p class="text-sm text-danger-300">
+              {{ paymentMessage }}
+            </p>
+            <p class="text-sm text-neutral-600">
+              訂單已建立，請重新付款或聯繫客服協助處理。
+            </p>
+          </div>
+        </div>
+
+        <!-- 付款成功或訂單已送出狀態 -->
+        <div
+          v-else
+          class="flex flex-col items-center gap-2"
+        >
           <div class="size-[100px]">
             <img
               src="/bookings/complete.svg"
               alt="Success"
               class="size-full object-contain"
-            />
+            >
           </div>
           <div class="flex flex-col gap-1 text-center">
             <h2 class="text-2xl font-bold tracking-wide text-neutral-900">
-              訂單已送出！
+              {{ paymentStatus === 'success' ? '付款成功！' : '訂單已送出！' }}
             </h2>
             <div class="text-sm text-neutral-600">
               <p>請稍候工作人員確認預約申請</p>
@@ -190,7 +244,13 @@ function viewOrder() {
             </div>
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">付款狀態</span>
-              <span class="text-neutral-900">已付款</span>
+              <span
+                :class="paymentStatus === 'failed'
+                  ? 'text-danger-300'
+                  : 'text-neutral-900'"
+              >
+                {{ paymentStatus === 'success' ? '已付款' : paymentStatus === 'failed' ? '未付款' : '待確認' }}
+              </span>
             </div>
           </div>
         </div>

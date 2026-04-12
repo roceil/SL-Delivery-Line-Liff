@@ -26,7 +26,7 @@ function formatDate(date: string) {
   return `${Number(m)}/${Number(d)}`
 }
 
-// 確認送出訂單
+// 確認送出訂單並導向藍新金流付款頁
 async function confirmSubmit() {
   if (!bookingFormStore.pickupLocation || !bookingFormStore.deliveryLocation) {
     submitError.value = '請先填寫預約資料'
@@ -38,6 +38,7 @@ async function confirmSubmit() {
     isSubmitting.value = true
     submitError.value = ''
 
+    // Step 1: 建立訂單
     const newOrder = await bookingStore.createOrder({
       userId: lineStore.userId!,
       userName: bookingFormStore.recipientName || lineStore.displayName,
@@ -53,8 +54,49 @@ async function confirmSubmit() {
     })
 
     bookingFormStore.setCreatedOrder(newOrder.id, newOrder.voucherId)
+
+    // 儲存 orderId 至 sessionStorage，供付款回調後的完成頁使用
+    sessionStorage.setItem('payment_order_id', newOrder.id)
+    sessionStorage.setItem('payment_voucher_id', newOrder.voucherId ?? '')
+
+    // Step 2: 向 server 取得藍新加密參數
+    const serviceLabel = bookingFormStore.serviceType === 'round_trip' ? '雙程套票' : '單程運送'
+    const itemDesc = `行李寄送-${serviceLabel}x${bookingFormStore.luggageCount}件`
+
+    const paymentParams = await $fetch('/api/payment/create', {
+      method: 'POST',
+      body: {
+        orderId: newOrder.id,
+        amount: bookingFormStore.totalPrice,
+        itemDesc,
+        paymentMethod: bookingFormStore.paymentMethod,
+      },
+    })
+
     showConfirmModal.value = false
-    router.push('/life/booking-complete')
+
+    // Step 3: 動態建立隱藏表單並送出至藍新付款頁
+    const form = document.createElement('form')
+    form.method = 'POST'
+    form.action = paymentParams.apiUrl
+
+    const fields: Record<string, string> = {
+      MerchantID: paymentParams.merchantId,
+      TradeInfo: paymentParams.tradeInfo,
+      TradeSha: paymentParams.tradeSha,
+      Version: paymentParams.version,
+    }
+
+    for (const [name, value] of Object.entries(fields)) {
+      const input = document.createElement('input')
+      input.type = 'hidden'
+      input.name = name
+      input.value = value
+      form.appendChild(input)
+    }
+
+    document.body.appendChild(form)
+    form.submit()
   }
   catch (err) {
     submitError.value = err instanceof Error ? err.message : '建立訂單失敗，請稍後再試'
