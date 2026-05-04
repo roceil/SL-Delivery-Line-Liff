@@ -12,15 +12,16 @@ export const useBookingStore = defineStore('booking', () => {
     return orders.value.filter(order => order.status === status)
   })
 
+  // 進行中：尚未到終點（不是 delivered/completed/cancelled 都算）
+  const TERMINAL_STATUSES = ['delivered', 'completed', 'cancelled'] as const
+
   const activeOrders = computed(() => {
-    return orders.value.filter(order =>
-      ['pending', 'confirmed', 'in_transit'].includes(order.status),
-    )
+    return orders.value.filter(order => !TERMINAL_STATUSES.includes(order.status as any))
   })
 
   const completedOrders = computed(() => {
     return orders.value.filter(order =>
-      ['delivered', 'cancelled'].includes(order.status),
+      ['delivered', 'completed'].includes(order.status),
     )
   })
 
@@ -201,6 +202,7 @@ export const useBookingStore = defineStore('booking', () => {
         deliveryDate: string
         pickupTime: string
         luggageCount: number
+        servicePlan?: string | null
         status: string
         pickupLocation: {
           id: string
@@ -233,6 +235,7 @@ export const useBookingStore = defineStore('booking', () => {
             bookingDate: apiOrder.deliveryDate,
             pickupTime: apiOrder.pickupTime,
             luggageCount: apiOrder.luggageCount,
+            servicePlan: apiOrder.servicePlan ?? null,
             pickupLocation: {
               id: Number.parseInt(apiOrder.pickupLocation.id, 10),
               name: apiOrder.pickupLocation.name,
@@ -290,6 +293,10 @@ export const useBookingStore = defineStore('booking', () => {
         deliveryDate: string
         pickupTime: string
         luggageCount: number
+        servicePlan?: string | null
+        paymentStatus?: string | null
+        recipientName?: string | null
+        recipientPhone?: string | null
         status: string
         pickupLocation: {
           id: string
@@ -316,10 +323,15 @@ export const useBookingStore = defineStore('booking', () => {
         voucherId: apiOrder.voucherId,
         userId: lineStore.userId || '',
         userName: apiOrder.lineName,
+        phone: apiOrder.phone || undefined,
         status: apiOrder.status as BookingStatus,
         bookingDate: apiOrder.deliveryDate,
         pickupTime: apiOrder.pickupTime,
         luggageCount: apiOrder.luggageCount,
+        servicePlan: apiOrder.servicePlan ?? null,
+        paymentStatus: apiOrder.paymentStatus ?? null,
+        recipientName: apiOrder.recipientName ?? null,
+        recipientPhone: apiOrder.recipientPhone ?? null,
         pickupLocation: {
           id: Number.parseInt(apiOrder.pickupLocation.id, 10),
           name: apiOrder.pickupLocation.name,

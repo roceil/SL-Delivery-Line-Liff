@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { BookingOrder } from '~/types/booking'
+import { SERVICE_PLAN_PRICE } from '~/types/booking'
 
 definePageMeta({
   layout: 'life',
@@ -99,9 +100,13 @@ const steps = [
 const activeStepIndex = computed(() => {
   switch (order.value?.status) {
     case 'pending': return 0
-    case 'confirmed': return 1
+    case 'confirmed':
+    case 'assigned': return 1
+    case 'received': return 2
+    case 'in_delivery':
     case 'in_transit': return 3
-    case 'delivered': return 5
+    case 'delivered':
+    case 'completed': return 5
     default: return -1
   }
 })
@@ -110,12 +115,82 @@ const statusLabel = computed(() => {
   const config: Record<string, string> = {
     pending: '訂單確認中',
     confirmed: '待交付行李',
+    assigned: '待交付行李',
+    received: '已收件',
+    in_delivery: '運送中',
     in_transit: '運送中',
     delivered: '已完成',
+    completed: '已完成',
     cancelled: '已取消',
+    overdue: '逾期',
   }
   return config[order.value?.status ?? ''] ?? '未知'
 })
+
+const statusSubLabel = computed(() => {
+  const config: Record<string, string> = {
+    pending: '請稍候',
+    confirmed: '請依時將行李送至門市',
+    assigned: '請依時將行李送至門市',
+    received: '配送中',
+    in_delivery: '配送中',
+    in_transit: '配送中',
+    delivered: '感謝您的使用',
+    completed: '感謝您的使用',
+    cancelled: '此訂單已取消',
+    overdue: '請聯繫客服',
+  }
+  return config[order.value?.status ?? ''] ?? ''
+})
+
+const isCancelled = computed(() =>
+  order.value?.status === 'cancelled',
+)
+
+// 服務方案中文 + 單價（與 OrderCard 同一份對應）
+const SERVICE_PLAN_LABEL: Record<string, string> = {
+  one_way: '單程運送',
+  round_trip: '雙程套票',
+  merchant: '商家代售',
+}
+
+const servicePlanLabel = computed(() => {
+  const plan = order.value?.servicePlan
+  if (!plan)
+    return '—'
+  return SERVICE_PLAN_LABEL[plan] ?? plan
+})
+
+const subtotalAmount = computed<number | null>(() => {
+  const plan = order.value?.servicePlan
+  if (!plan)
+    return null
+  const unit = SERVICE_PLAN_PRICE[plan]
+  if (unit == null)
+    return null
+  return unit * (order.value?.luggageCount ?? 0)
+})
+
+const paymentStatusLabel = computed(() => {
+  const map: Record<string, string> = {
+    unpaid: '未付款',
+    paid: '已付款',
+    refunding: '退款處理中',
+    refunded: '已退款',
+  }
+  const ps = order.value?.paymentStatus
+  if (!ps)
+    return '—'
+  return map[ps] ?? ps
+})
+
+const recipientNameDisplay = computed(() =>
+  order.value?.recipientName?.trim() || order.value?.userName || '—',
+)
+
+const recipientPhoneDisplay = computed(() =>
+  order.value?.recipientPhone?.trim() || order.value?.phone || '—',
+)
 
 const activeStepTime = computed(() => {
   if (!order.value)
@@ -129,7 +204,7 @@ const activeStepTime = computed(() => {
 })
 
 const canCancel = computed(() =>
-  order.value != null && ['pending', 'confirmed'].includes(order.value.status),
+  order.value != null && ['pending', 'confirmed'].includes(order.value.status as string),
 )
 
 // ── Bottom Sheet 拖曳邏輯 ────────────────────────────────
@@ -278,10 +353,13 @@ const sheetStyle = computed(() => {
           style="background: linear-gradient(6deg, #fff 0%, rgba(255,255,255,0.5) 100%); backdrop-filter: blur(12px);"
         >
           <div class="flex flex-1 items-center gap-2">
-            <div class="size-1.5 rounded-rounded bg-primary-300"></div>
+            <div
+              class="size-1.5 rounded-rounded"
+              :class="isCancelled ? 'bg-neutral-400' : 'bg-primary-300'"
+            ></div>
             <span class="text-base font-bold text-neutral-900">{{ statusLabel }}</span>
           </div>
-          <span class="text-sm text-neutral-600">請稍候</span>
+          <span class="text-sm text-neutral-600">{{ statusSubLabel }}</span>
         </div>
       </div>
 
@@ -368,8 +446,34 @@ const sheetStyle = computed(() => {
                   </div>
                 </div>
 
+                <!-- 已取消訊息（取代步驟條） -->
+                <div
+                  v-if="isCancelled"
+                  class="
+                    mt-2 flex items-center gap-3 rounded-sm bg-neutral-100 p-3
+                  "
+                >
+                  <div class="flex rounded-rounded bg-neutral-200 p-2">
+                    <Icon
+                      name="lucide:circle-x"
+                      class="text-xl text-neutral-500"
+                    />
+                  </div>
+                  <div class="flex flex-1 flex-col gap-0.5">
+                    <span class="text-base font-bold text-neutral-700">
+                      此訂單已取消
+                    </span>
+                    <span class="text-sm text-neutral-500">
+                      取消時間 {{ activeStepTime }}
+                    </span>
+                  </div>
+                </div>
+
                 <!-- 步驟條 -->
-                <div class="mt-2 flex flex-col">
+                <div
+                  v-else
+                  class="mt-2 flex flex-col"
+                >
                   <div
                     v-for="(step, index) in steps"
                     :key="index"
@@ -544,7 +648,7 @@ const sheetStyle = computed(() => {
                 >
                   <div class="flex items-center gap-2 text-base">
                     <span class="min-w-[76px] shrink-0 text-neutral-600">服務方案</span>
-                    <span class="flex-1 text-right text-neutral-900">—</span>
+                    <span class="flex-1 text-right text-neutral-900">{{ servicePlanLabel }}</span>
                   </div>
                   <div class="flex items-center gap-2 text-base">
                     <span class="min-w-[76px] shrink-0 text-neutral-600">數量</span>
@@ -552,16 +656,17 @@ const sheetStyle = computed(() => {
                   </div>
                   <div class="flex items-center gap-2 text-base">
                     <span class="min-w-[76px] shrink-0 text-neutral-600">小計</span>
-                    <span class="flex-1 text-right text-neutral-900">—</span>
+                    <span class="flex-1 text-right text-neutral-900">
+                      <template v-if="subtotalAmount != null">
+                        NT$ {{ subtotalAmount.toLocaleString() }}
+                      </template>
+                      <template v-else>—</template>
+                    </span>
                   </div>
                   <div class="my-1 h-px bg-neutral-100"></div>
                   <div class="flex items-center gap-2 text-base">
-                    <span class="min-w-[76px] shrink-0 text-neutral-600">付款方式</span>
-                    <span class="flex-1 text-right text-neutral-900">—</span>
-                  </div>
-                  <div class="flex items-center gap-2 text-base">
                     <span class="min-w-[76px] shrink-0 text-neutral-600">付款狀態</span>
-                    <span class="flex-1 text-right text-neutral-900">—</span>
+                    <span class="flex-1 text-right text-neutral-900">{{ paymentStatusLabel }}</span>
                   </div>
                 </div>
               </Transition>
@@ -598,11 +703,11 @@ const sheetStyle = computed(() => {
                 >
                   <div class="flex items-center gap-2 text-base">
                     <span class="min-w-[76px] shrink-0 text-neutral-600">姓名</span>
-                    <span class="flex-1 text-right text-neutral-900">{{ order.userName }}</span>
+                    <span class="flex-1 text-right text-neutral-900">{{ recipientNameDisplay }}</span>
                   </div>
                   <div class="flex items-center gap-2 text-base">
                     <span class="min-w-[76px] shrink-0 text-neutral-600">聯絡電話</span>
-                    <span class="flex-1 text-right text-neutral-900">—</span>
+                    <span class="flex-1 text-right text-neutral-900">{{ recipientPhoneDisplay }}</span>
                   </div>
                 </div>
               </Transition>

@@ -12,7 +12,7 @@ const currentTab = ref<'active' | 'completed' | 'cancelled'>('active')
 const currentPage = ref(1)
 
 const completedOrders = computed(() =>
-  orders.value.filter(o => o.status === 'delivered'),
+  orders.value.filter(o => ['delivered', 'completed'].includes(o.status)),
 )
 
 const cancelledOrders = computed(() =>

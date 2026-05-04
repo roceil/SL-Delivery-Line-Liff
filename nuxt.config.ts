@@ -4,6 +4,11 @@ import { appDescription } from './app/constants/index'
 export default defineNuxtConfig({
   devtools: { enabled: true },
 
+  devServer: {
+    port: 3003,
+    host: ' ',
+  },
+
   vite: {
     plugins: [
       tailwindcss(),

@@ -3,15 +3,9 @@ import QRCode from 'qrcode'
 
 export function useQRCode() {
   async function generateOrderQRCode(voucherId: string): Promise<string> {
-    const qrData: QRCodeData = {
-      voucherId,
-      type: 'booking_order',
-      version: 'v1',
-    }
-
-    const dataString = JSON.stringify(qrData)
-
-    return await QRCode.toDataURL(dataString, {
+    // QR 內容直接編碼 voucherId 字串（例如 "iSTBr4hQEe"）
+    // 給門市/司機端掃描時，掃到的就是 voucherId，可直接拿去查訂單
+    return await QRCode.toDataURL(voucherId, {
       errorCorrectionLevel: 'H',
       margin: 2,
       width: 300,
