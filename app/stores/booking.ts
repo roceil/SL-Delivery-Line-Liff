@@ -37,6 +37,7 @@ export const useBookingStore = defineStore('booking', () => {
       platformType?: string
       platformOrderId?: string
       platformPhone?: string
+      servicePlan?: string
     },
   ) {
     try {
@@ -48,6 +49,9 @@ export const useBookingStore = defineStore('booking', () => {
       const lineStore = useLineStore()
       const profileStore = useProfileStore()
 
+      // 旅客電話：個人資料優先，若無則回退到領件人電話
+      const travelerPhone = profileStore.phoneNumber || orderData.platformPhone || undefined
+
       // 準備 API 請求資料
       const apiRequest = {
         deliveryDate: orderData.bookingDate,
@@ -55,9 +59,12 @@ export const useBookingStore = defineStore('booking', () => {
         luggageCount: orderData.luggageCount,
         pickupLocationId: orderData.pickupLocation.id.toString(),
         deliveryLocationId: orderData.deliveryLocation.id.toString(),
-        lineName: orderData.userName,
-        // 優先使用平台訂單的電話，若無則使用個人資料的電話
-        phone: orderData.platformPhone || profileStore.phoneNumber || undefined,
+        // 旅客姓名與電話（Backstation 必填）
+        lineName: lineStore.displayName || orderData.userName,
+        phone: travelerPhone,
+        // 領件人姓名與電話（Backstation 必填）
+        recipientName: orderData.userName,
+        recipientPhone: orderData.platformPhone || profileStore.phoneNumber || undefined,
         notes: orderData.specialNote || undefined,
         // LINE 使用者資料（用於建立/更新 users 表）
         lineUserId: lineStore.userId || undefined,
@@ -66,6 +73,8 @@ export const useBookingStore = defineStore('booking', () => {
         // 平台訂單資訊
         platformType: orderData.platformType || undefined,
         platformOrderId: orderData.platformOrderId || undefined,
+        // 服務方案（'round_trip' | 'one_way'）— Backstation 用來計算費用、決定是否建回程任務
+        servicePlan: orderData.servicePlan || undefined,
       }
 
       // 呼叫 Backstation API 建立訂單
@@ -76,7 +85,7 @@ export const useBookingStore = defineStore('booking', () => {
         id: apiResponse.id,
         voucherId: apiResponse.voucherId,
         userId: orderData.userId,
-        userName: apiResponse.lineName,
+        userName: apiResponse.recipientName,
         status: 'pending',
         bookingDate: apiResponse.deliveryDate,
         pickupTime: apiResponse.pickupTime,
@@ -145,7 +154,38 @@ export const useBookingStore = defineStore('booking', () => {
   }
 
   async function cancelOrder(orderId: string) {
-    return updateOrder(orderId, { status: 'cancelled' })
+    try {
+      isLoading.value = true
+      error.value = null
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await $fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH' as any,
+        body: { status: 'cancelled' },
+      })
+
+      // 同步本地狀態
+      const index = orders.value.findIndex(o => o.id === orderId)
+      if (index !== -1) {
+        orders.value[index] = {
+          ...orders.value[index]!,
+          status: 'cancelled',
+          updatedAt: new Date().toISOString(),
+        } as BookingOrder
+      }
+      if (currentOrder.value?.id === orderId) {
+        currentOrder.value = { ...currentOrder.value, status: 'cancelled', updatedAt: new Date().toISOString() }
+      }
+
+      return orders.value[index] || currentOrder.value
+    }
+    catch (err) {
+      error.value = err instanceof Error ? err.message : '取消訂單失敗'
+      throw err
+    }
+    finally {
+      isLoading.value = false
+    }
   }
 
   function setCurrentOrder(order: BookingOrder | null) {
@@ -279,11 +319,7 @@ export const useBookingStore = defineStore('booking', () => {
 
       const lineStore = useLineStore()
 
-      if (!lineStore.userId) {
-        throw new Error('LINE 使用者 ID 不存在')
-      }
-
-      // 從 API 載入單一訂單
+      // 從 API 載入單一訂單（API 路徑只需 orderId，不需 userId）
       const apiOrder = await $fetch<{
         id: string
         voucherId: string

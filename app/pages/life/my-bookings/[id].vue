@@ -175,6 +175,8 @@ const paymentStatusLabel = computed(() => {
   const map: Record<string, string> = {
     unpaid: '未付款',
     paid: '已付款',
+    no_refund_required: '無須退款',
+    pending_refund: '待退款',
     refunding: '退款處理中',
     refunded: '已退款',
   }

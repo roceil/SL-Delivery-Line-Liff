@@ -23,7 +23,7 @@ export const useBookingFormStore = defineStore('booking-form', () => {
   const agreeToTerms = ref(false)
 
   // 付款
-  const paymentMethod = ref<PaymentMethod>('line_pay')
+  const paymentMethod = ref<PaymentMethod>('credit_card')
 
   // 建立完成的訂單
   const createdOrderId = ref<string | null>(null)
@@ -65,7 +65,7 @@ export const useBookingFormStore = defineStore('booking-form', () => {
     recipientPhone.value = ''
     notes.value = ''
     agreeToTerms.value = false
-    paymentMethod.value = 'line_pay'
+    paymentMethod.value = 'credit_card'
     createdOrderId.value = null
     createdVoucherId.value = null
   }

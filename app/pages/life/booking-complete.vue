@@ -1,4 +1,7 @@
 <script lang="ts" setup>
+import type { BookingOrder } from '~/types/booking'
+import { SERVICE_PLAN_PRICE } from '~/types/booking'
+
 definePageMeta({
   layout: 'booking-flow',
 })
@@ -6,6 +9,10 @@ definePageMeta({
 const router = useRouter()
 const route = useRoute()
 const bookingFormStore = useBookingFormStore()
+const bookingStore = useBookingStore()
+
+// 從 Backstation 取得的訂單資料（付款後 store 已清空，需從後端撈完整資料）
+const fetchedOrder = ref<BookingOrder | null>(null)
 
 // 藍新金流回調結果（從 URL query params 取得）
 const paymentStatus = computed(() => {
@@ -24,8 +31,21 @@ const paymentMessage = computed(() => {
   return `付款失敗（${status}）`
 })
 
-// 若 store 中無訂單資料（付款後返回時 store 已清空），嘗試從 sessionStorage 還原
-onMounted(() => {
+// 顯示用 computed：fetched order 優先，fallback 到 form store
+const displayVoucherId = computed(() => fetchedOrder.value?.voucherId || bookingFormStore.createdVoucherId || '')
+const displayPickupLocation = computed(() => fetchedOrder.value?.pickupLocation || bookingFormStore.pickupLocation)
+const displayDeliveryLocation = computed(() => fetchedOrder.value?.deliveryLocation || bookingFormStore.deliveryLocation)
+const displayLuggageCount = computed(() => fetchedOrder.value?.luggageCount ?? bookingFormStore.luggageCount)
+const displayBookingDate = computed(() => fetchedOrder.value?.bookingDate || bookingFormStore.bookingDate)
+const displayServicePlan = computed(() => fetchedOrder.value?.servicePlan || bookingFormStore.serviceType)
+const displayServicePlanLabel = computed(() => displayServicePlan.value === 'round_trip' ? '雙程套票' : '單程運送')
+const displayUnitPrice = computed(() => SERVICE_PLAN_PRICE[displayServicePlan.value as string] ?? bookingFormStore.unitPrice)
+const displayTotalPrice = computed(() => displayUnitPrice.value * displayLuggageCount.value)
+const displayRecipientName = computed(() => fetchedOrder.value?.recipientName || fetchedOrder.value?.userName || bookingFormStore.recipientName)
+const displayRecipientPhone = computed(() => fetchedOrder.value?.recipientPhone || fetchedOrder.value?.phone || bookingFormStore.recipientPhone)
+
+// 若 store 中無訂單資料（付款後返回時 store 已清空），從 sessionStorage 還原並撈訂單
+onMounted(async () => {
   if (!bookingFormStore.createdOrderId) {
     const orderId = sessionStorage.getItem('payment_order_id')
     const voucherId = sessionStorage.getItem('payment_voucher_id')
@@ -33,9 +53,14 @@ onMounted(() => {
       bookingFormStore.setCreatedOrder(orderId, voucherId || undefined)
     }
   }
-  // 清除 sessionStorage
   sessionStorage.removeItem('payment_order_id')
   sessionStorage.removeItem('payment_voucher_id')
+
+  // 從 Backstation 撈完整訂單資料
+  const orderId = bookingFormStore.createdOrderId
+  if (orderId) {
+    fetchedOrder.value = await bookingStore.fetchOrderById(orderId)
+  }
 })
 
 function formatDate(date: string) {
@@ -50,7 +75,7 @@ const paymentMethodLabel = computed(() => {
     credit_card: '信用卡',
     apple_pay: 'Apple Pay',
   }
-  return map[bookingFormStore.paymentMethod] || ''
+  return map[bookingFormStore.paymentMethod] || '信用卡'
 })
 
 function copyToClipboard(text: string) {
@@ -151,7 +176,7 @@ function viewOrder() {
                   class="text-xl text-primary-300"
                 />
               </div>
-              <span class="text-base font-medium text-neutral-900">{{ bookingFormStore.pickupLocation?.name || '碼頭門市' }}</span>
+              <span class="text-base font-medium text-neutral-900">{{ displayPickupLocation?.name || '—' }}</span>
             </div>
             <div class="flex justify-center">
               <Icon
@@ -171,7 +196,7 @@ function viewOrder() {
                   class="text-xl text-primary-300"
                 />
               </div>
-              <span class="flex-1 text-base font-medium text-neutral-900">{{ bookingFormStore.deliveryLocation?.name || '—' }}</span>
+              <span class="flex-1 text-base font-medium text-neutral-900">{{ displayDeliveryLocation?.name || '—' }}</span>
             </div>
           </div>
 
@@ -180,10 +205,10 @@ function viewOrder() {
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">訂單編號</span>
               <div class="flex items-center gap-1">
-                <span class="text-neutral-900">{{ bookingFormStore.createdVoucherId || '—' }}</span>
+                <span class="text-neutral-900">{{ displayVoucherId || '—' }}</span>
                 <button
-                  v-if="bookingFormStore.createdVoucherId"
-                  @click="copyToClipboard(bookingFormStore.createdVoucherId!)"
+                  v-if="displayVoucherId"
+                  @click="copyToClipboard(displayVoucherId)"
                 >
                   <Icon
                     name="lucide:copy"
@@ -194,11 +219,11 @@ function viewOrder() {
             </div>
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">行李數量</span>
-              <span class="text-neutral-900">{{ bookingFormStore.luggageCount }} 件</span>
+              <span class="text-neutral-900">{{ displayLuggageCount }} 件</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">寄件日期</span>
-              <span class="text-neutral-900">{{ formatDate(bookingFormStore.bookingDate) }}</span>
+              <span class="text-neutral-900">{{ formatDate(displayBookingDate) || '—' }}</span>
             </div>
           </div>
         </div>
@@ -221,19 +246,19 @@ function viewOrder() {
           <div class="mb-3 flex flex-col gap-1 text-base">
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">服務方案</span>
-              <span class="text-neutral-900">{{ bookingFormStore.serviceType === 'round_trip' ? '雙程套票' : '單程運送' }}</span>
+              <span class="text-neutral-900">{{ displayServicePlanLabel }}</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">單價</span>
-              <span class="text-neutral-900">NT$ {{ bookingFormStore.unitPrice }} / 件</span>
+              <span class="text-neutral-900">NT$ {{ displayUnitPrice }} / 件</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">數量</span>
-              <span class="text-neutral-900">{{ bookingFormStore.luggageCount }} 件</span>
+              <span class="text-neutral-900">{{ displayLuggageCount }} 件</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">總計</span>
-              <span class="text-neutral-900">NT$ {{ bookingFormStore.totalPrice }}</span>
+              <span class="text-neutral-900">NT$ {{ displayTotalPrice }}</span>
             </div>
           </div>
           <div class="mb-3 h-px bg-neutral-200"></div>
@@ -273,11 +298,11 @@ function viewOrder() {
           <div class="flex flex-col gap-1 text-base">
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">姓名</span>
-              <span class="text-neutral-900">{{ bookingFormStore.recipientName }}</span>
+              <span class="text-neutral-900">{{ displayRecipientName || '—' }}</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">聯絡電話</span>
-              <span class="text-neutral-900">{{ bookingFormStore.recipientPhone }}</span>
+              <span class="text-neutral-900">{{ displayRecipientPhone || '—' }}</span>
             </div>
           </div>
         </div>

@@ -13,9 +13,9 @@ const submitError = ref('')
 const showConfirmModal = ref(false)
 
 const paymentOptions = [
-  { id: 'line_pay' as const, label: 'LINE Pay', image: '/payments/LinePay.png', imageClass: 'h-4' },
-  { id: 'credit_card' as const, label: '信用卡', image: '/payments/Visa.png', image2: '/payments/Mastercard.png' },
-  { id: 'apple_pay' as const, label: 'Apple Pay', image: '/payments/ApplePay.png' },
+  { id: 'credit_card' as const, label: '信用卡', image: '/payments/Visa.png', image2: '/payments/Mastercard.png', disabled: false },
+  { id: 'line_pay' as const, label: 'LINE Pay', image: '/payments/LinePay.png', imageClass: 'h-4', disabled: true },
+  { id: 'apple_pay' as const, label: 'Apple Pay', image: '/payments/ApplePay.png', disabled: true },
 ]
 
 // 格式化日期
@@ -51,6 +51,7 @@ async function confirmSubmit() {
       platformType: bookingFormStore.platformType || undefined,
       platformOrderId: bookingFormStore.platformOrderId || undefined,
       platformPhone: bookingFormStore.recipientPhone || undefined,
+      servicePlan: bookingFormStore.serviceType,
     })
 
     bookingFormStore.setCreatedOrder(newOrder.id, newOrder.voucherId)
@@ -307,12 +308,17 @@ async function confirmSubmit() {
               v-for="option in paymentOptions"
               :key="option.id"
               class="
-                flex cursor-pointer items-center gap-3 rounded-sm border p-4
+                flex items-center gap-3 rounded-sm border p-4
                 transition-colors
               "
-              :class="bookingFormStore.paymentMethod === option.id
-                ? 'border-[#4090e8]'
-                : 'border-neutral-200'"
+              :class="[
+                option.disabled
+                  ? 'cursor-not-allowed border-neutral-200 opacity-50'
+                  : 'cursor-pointer',
+                !option.disabled && bookingFormStore.paymentMethod === option.id
+                  ? 'border-[#4090e8]'
+                  : 'border-neutral-200',
+              ]"
             >
               <!-- Radio -->
               <div
@@ -336,6 +342,7 @@ async function confirmSubmit() {
                 v-model="bookingFormStore.paymentMethod"
                 type="radio"
                 :value="option.id"
+                :disabled="option.disabled"
                 class="sr-only"
               >
               <span class="flex-1 text-base font-medium text-neutral-900">{{ option.label }}</span>
