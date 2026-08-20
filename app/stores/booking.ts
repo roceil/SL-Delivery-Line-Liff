@@ -228,15 +228,12 @@ export const useBookingStore = defineStore('booking', () => {
       error.value = null
 
       const lineStore = useLineStore()
-
-      if (!lineStore.userId) {
-        orders.value = []
-        return
-      }
-
       const { apiFetch } = useApiFetch()
 
-      // 從 API 載入訂單列表（lineUserId 由後端從 ID Token 取得）
+      // 不再以 lineStore.userId 作為前置守衛：直接開啟本頁（未經首頁）時
+      // LIFF 尚未初始化，userId 為 null 會導致連 API 都不發就回傳空清單。
+      // 使用者身分由後端從 access token 取得，前端不需要先知道 userId。
+      // 從 API 載入訂單列表
       const response = await apiFetch<{
         id: string
         voucherId: string
