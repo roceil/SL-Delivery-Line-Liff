@@ -1,5 +1,6 @@
 {
-  "name": "nuxt4-template",
+  "name": "sl-delivery-line-liff",
+  "description": "你行李來 — 小琉球行李寄送服務的 LINE LIFF 前台",
   "type": "module",
   "private": true,
   "packageManager": "pnpm@10.13.1",
