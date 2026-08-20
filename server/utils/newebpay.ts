@@ -48,7 +48,7 @@ export function decryptTradeInfo(
 
   // 手動移除尾部 padding（控制字元 \x00-\x1f）
   // eslint-disable-next-line no-control-regex
-  decrypted = decrypted.replace(/[\x00-\x1f]+$/g, '')
+  decrypted = decrypted.replace(/[\x00-\x1F]+$/g, '')
 
   try {
     return JSON.parse(decrypted) as Record<string, unknown>

@@ -124,14 +124,18 @@ function closeVoucher() {
     >
       <div
         v-if="showVoucherModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6"
+        class="
+          fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6
+        "
         role="dialog"
         aria-modal="true"
         @click.self="closeVoucher"
       >
         <div class="flex w-full max-w-[320px] flex-col items-center gap-6">
           <!-- 上方提示 -->
-          <p class="text-center text-base leading-relaxed font-medium text-white">
+          <p
+            class="text-center text-base leading-relaxed font-medium text-white"
+          >
             使用 Klook/KKday/Trip 購買的旅客<br>請改用該 App 內的電子憑證
           </p>
 
@@ -176,7 +180,9 @@ function closeVoucher() {
             <!-- 訂單資訊 -->
             <div class="flex flex-col gap-2">
               <div
-                class="flex items-center gap-2 text-base font-bold text-neutral-900"
+                class="
+                  flex items-center gap-2 text-base font-bold text-neutral-900
+                "
               >
                 <span class="truncate">{{ order.pickupLocation.name }}</span>
                 <Icon

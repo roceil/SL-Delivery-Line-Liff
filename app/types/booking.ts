@@ -12,17 +12,17 @@ export interface Location {
 // 對齊 backstation orders_status 表（id 1..9），加上前端原本的 in_transit 別名相容
 // pending=待確認 / confirmed=已確認 / assigned=已分派 / in_delivery=配送中 / received=已收件
 // delivered=已送達 / cancelled=已取消 / completed=已完成 / overdue=逾期
-export type BookingStatus =
-  | 'pending'
-  | 'confirmed'
-  | 'assigned'
-  | 'in_delivery'
-  | 'received'
-  | 'in_transit'
-  | 'delivered'
-  | 'completed'
-  | 'cancelled'
-  | 'overdue'
+export type BookingStatus
+  = | 'pending'
+    | 'confirmed'
+    | 'assigned'
+    | 'in_delivery'
+    | 'received'
+    | 'in_transit'
+    | 'delivered'
+    | 'completed'
+    | 'cancelled'
+    | 'overdue'
 
 export type ServicePlan = 'one_way' | 'round_trip' | 'merchant' | string
 

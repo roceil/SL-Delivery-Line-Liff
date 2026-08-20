@@ -170,7 +170,10 @@ onMounted(async () => {
           v-for="page in totalPages"
           :key="page"
           type="button"
-          class="flex size-10 items-center justify-center rounded-xs text-base font-bold"
+          class="
+            flex size-10 items-center justify-center rounded-xs text-base
+            font-bold
+          "
           :class="page === currentPage ? 'text-primary-300' : 'text-neutral-500'"
           @click="currentPage = page"
         >
@@ -212,8 +215,7 @@ onMounted(async () => {
         v-if="currentTab === 'active'"
         to="/life/booking"
         class="
-          rounded-sm bg-primary-300 px-4 py-2 text-base font-medium
-          text-white
+          rounded-sm bg-primary-300 px-4 py-2 text-base font-medium text-white
         "
       >
         馬上預約
