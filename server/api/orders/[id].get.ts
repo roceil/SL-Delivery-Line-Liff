@@ -25,8 +25,6 @@ interface OrderDetailResponse {
 }
 
 export default defineEventHandler(async (event): Promise<OrderDetailResponse> => {
-  const config = useRuntimeConfig()
-  const backstationApiUrl = config.public.backstationApiUrl as string
   const orderId = getRouterParam(event, 'id')
 
   if (!orderId) {
@@ -36,9 +34,12 @@ export default defineEventHandler(async (event): Promise<OrderDetailResponse> =>
     })
   }
 
+  // 至少要求登入。訂單擁有者的比對需由 Backstation 支援（LIFF 端無訂單歸屬資料）
+  await requireLineUserId(event)
+
   try {
     // 代理請求到 Backstation API
-    const response = await $fetch<OrderDetailResponse>(`${backstationApiUrl}/api/orders/${orderId}`, {
+    const response = await backstationFetch<OrderDetailResponse>(`/api/orders/${orderId}`, {
       method: 'GET',
     })
 

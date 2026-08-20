@@ -22,8 +22,10 @@ export const useProfileStore = defineStore('profile', () => {
       isLoading.value = true
       error.value = null
 
+      const { apiFetch } = useApiFetch()
+
       // 從 API 載入使用者資料
-      const response = await $fetch<{
+      const response = await apiFetch<{
         userId: number
         lineUserId: string
         displayName: string
@@ -84,8 +86,10 @@ export const useProfileStore = defineStore('profile', () => {
       if (updates.email && !validateEmail(updates.email))
         throw new Error('信箱格式不正確')
 
+      const { apiFetch } = useApiFetch()
+
       // 呼叫 API 更新使用者資料
-      const response = await $fetch<{
+      const response = await apiFetch<{
         userId: number
         lineUserId: string
         displayName: string

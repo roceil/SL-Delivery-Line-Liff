@@ -158,9 +158,10 @@ export const useBookingStore = defineStore('booking', () => {
       isLoading.value = true
       error.value = null
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await $fetch(`/api/orders/${orderId}`, {
-        method: 'PATCH' as any,
+      const { apiFetch } = useApiFetch()
+
+      await apiFetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
         body: { status: 'cancelled' },
       })
 
@@ -200,8 +201,10 @@ export const useBookingStore = defineStore('booking', () => {
       if (qrData.type !== 'booking_order')
         throw new Error('QR Code 格式不正確')
 
+      const { apiFetch } = useApiFetch()
+
       // 使用 voucherId 查詢訂單 ID
-      const response = await $fetch<{ id: string }>(`/api/orders/by-voucher/${qrData.voucherId}`)
+      const response = await apiFetch<{ id: string }>(`/api/orders/by-voucher/${qrData.voucherId}`)
       const order = getOrderById.value(response.id)
 
       if (!order)
@@ -231,8 +234,10 @@ export const useBookingStore = defineStore('booking', () => {
         return
       }
 
-      // 從 API 載入訂單列表
-      const response = await $fetch<{
+      const { apiFetch } = useApiFetch()
+
+      // 從 API 載入訂單列表（lineUserId 由後端從 ID Token 取得）
+      const response = await apiFetch<{
         id: string
         voucherId: string
         userId: number
@@ -259,7 +264,7 @@ export const useBookingStore = defineStore('booking', () => {
         notes: string
         createdAt: string
         updatedAt: string
-      }[]>(`/api/orders?lineUserId=${lineStore.userId}`)
+      }[]>('/api/orders')
 
       const { generateOrderQRCode } = useQRCode()
 
@@ -318,9 +323,10 @@ export const useBookingStore = defineStore('booking', () => {
       error.value = null
 
       const lineStore = useLineStore()
+      const { apiFetch } = useApiFetch()
 
       // 從 API 載入單一訂單（API 路徑只需 orderId，不需 userId）
-      const apiOrder = await $fetch<{
+      const apiOrder = await apiFetch<{
         id: string
         voucherId: string
         category: string

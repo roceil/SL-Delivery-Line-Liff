@@ -5,7 +5,6 @@ export default defineEventHandler(async (event) => {
 
   const hashKey = config.newebpayHashKey as string
   const hashIV = config.newebpayHashIV as string
-  const backstationApiUrl = config.public.backstationApiUrl as string
 
   const body = await readBody<Record<string, string>>(event)
   const { Status, TradeInfo, TradeSha } = body
@@ -51,7 +50,7 @@ export default defineEventHandler(async (event) => {
       // 信用卡 MPG 的 Result 包含 TradeNo / Auth / Card4No / PayTime 等供退款/對帳使用
       const paymentTradeData = (tradeData.Result as Record<string, unknown> | undefined) ?? tradeData
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await $fetch(`${backstationApiUrl}/api/orders/${merchantOrderNo}`, {
+      await backstationFetch(`/api/orders/${merchantOrderNo}`, {
         method: 'PATCH' as any,
         body: { paymentStatus: 'paid', paymentTradeData },
       })

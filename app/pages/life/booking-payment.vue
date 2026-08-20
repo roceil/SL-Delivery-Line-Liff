@@ -64,7 +64,14 @@ async function confirmSubmit() {
     const serviceLabel = bookingFormStore.serviceType === 'round_trip' ? '雙程套票' : '單程運送'
     const itemDesc = `行李寄送-${serviceLabel}x${bookingFormStore.luggageCount}件`
 
-    const paymentParams = await $fetch('/api/payment/create', {
+    const { apiFetch } = useApiFetch()
+    const paymentParams = await apiFetch<{
+      merchantId: string
+      tradeInfo: string
+      tradeSha: string
+      version: string
+      apiUrl: string
+    }>('/api/payment/create', {
       method: 'POST',
       body: {
         orderId: newOrder.id,
@@ -308,8 +315,7 @@ async function confirmSubmit() {
               v-for="option in paymentOptions"
               :key="option.id"
               class="
-                flex items-center gap-3 rounded-sm border p-4
-                transition-colors
+                flex items-center gap-3 rounded-sm border p-4 transition-colors
               "
               :class="[
                 option.disabled

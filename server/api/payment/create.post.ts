@@ -20,6 +20,9 @@ export default defineEventHandler(async (event): Promise<CreatePaymentResponse> 
   const config = useRuntimeConfig()
   const body = await readBody<CreatePaymentRequest>(event)
 
+  // 要求登入，避免任意對他人訂單產生付款單
+  await requireLineUserId(event)
+
   const { orderId, amount, itemDesc, email, paymentMethod } = body
 
   const merchantId = config.newebpayMerchantId as string

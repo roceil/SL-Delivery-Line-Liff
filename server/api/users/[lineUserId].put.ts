@@ -15,8 +15,6 @@ interface UserResponse {
 }
 
 export default defineEventHandler(async (event): Promise<UserResponse> => {
-  const config = useRuntimeConfig()
-  const backstationApiUrl = config.public.backstationApiUrl as string
   const lineUserId = getRouterParam(event, 'lineUserId')
   const body = await readBody<UpdateUserRequest>(event)
 
@@ -27,9 +25,12 @@ export default defineEventHandler(async (event): Promise<UserResponse> => {
     })
   }
 
+  // 僅允許更新自己的資料
+  await requireOwnLineUserId(event, lineUserId)
+
   try {
     // 代理請求到 Backstation API
-    const response = await $fetch<UserResponse>(`${backstationApiUrl}/api/users/${lineUserId}`, {
+    const response = await backstationFetch<UserResponse>(`/api/users/${lineUserId}`, {
       method: 'PUT',
       body,
     })

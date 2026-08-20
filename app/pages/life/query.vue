@@ -56,7 +56,8 @@ async function startScan() {
       await handlePlatformOrder(qrData.platform, qrData.orderIdentifier)
     }
     else if (qrData.type === 'booking_order') {
-      const response = await $fetch<{ id: string }>(`/api/orders/by-voucher/${qrData.voucherId}`)
+      const { apiFetch } = useApiFetch()
+      const response = await apiFetch<{ id: string }>(`/api/orders/by-voucher/${qrData.voucherId}`)
       router.push(`/life/my-bookings/${response.id}`)
     }
     else {

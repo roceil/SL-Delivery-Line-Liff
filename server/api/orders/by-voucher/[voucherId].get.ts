@@ -1,6 +1,4 @@
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
-  const backstationApiUrl = config.public.backstationApiUrl as string
   const voucherId = getRouterParam(event, 'voucherId')
 
   if (!voucherId) {
@@ -10,9 +8,12 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // 至少要求登入。訂單擁有者的比對需由 Backstation 支援（LIFF 端無訂單歸屬資料）
+  await requireLineUserId(event)
+
   try {
     // 代理請求到 Backstation API
-    const response = await $fetch<{ id: string }>(`${backstationApiUrl}/api/orders/by-voucher/${voucherId}`)
+    const response = await backstationFetch<{ id: string }>(`/api/orders/by-voucher/${voucherId}`)
     return response
   }
   catch (error: any) {

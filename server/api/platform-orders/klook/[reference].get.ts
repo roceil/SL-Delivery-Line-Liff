@@ -12,8 +12,6 @@ interface KlookOrderResponse {
 }
 
 export default defineEventHandler(async (event): Promise<KlookOrderResponse> => {
-  const config = useRuntimeConfig()
-  const backstationApiUrl = config.public.backstationApiUrl as string
   const reference = getRouterParam(event, 'reference')
 
   if (!reference) {
@@ -23,9 +21,12 @@ export default defineEventHandler(async (event): Promise<KlookOrderResponse> => 
     })
   }
 
+  // 平台訂單含旅客姓名與電話，要求登入後才可查詢
+  await requireLineUserId(event)
+
   try {
     // 代理請求到 Backstation API
-    const response = await $fetch<KlookOrderResponse>(`${backstationApiUrl}/api/platform-orders/klook/${reference}`)
+    const response = await backstationFetch<KlookOrderResponse>(`/api/platform-orders/klook/${reference}`)
     return response
   }
   catch (error: any) {

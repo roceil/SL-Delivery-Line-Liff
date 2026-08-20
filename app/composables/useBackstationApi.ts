@@ -1,4 +1,6 @@
 export function useBackstationApi() {
+  const { apiFetch } = useApiFetch()
+
   interface DeliveryPoint {
     id: number
     name: string
@@ -35,6 +37,8 @@ export function useBackstationApi() {
     category: string
     lineName: string
     phone: string
+    recipientName: string
+    recipientPhone: string
     deliveryDate: string
     pickupTime: string
     luggageCount: number
@@ -71,7 +75,7 @@ export function useBackstationApi() {
   async function createOrder(orderData: CreateOrderRequest): Promise<CreateOrderResponse> {
     try {
       // 呼叫 LIFF 自己的 server API（無 CORS 問題）
-      const response = await $fetch<CreateOrderResponse>('/api/orders', {
+      const response = await apiFetch<CreateOrderResponse>('/api/orders', {
         method: 'POST',
         body: orderData,
       })
@@ -132,7 +136,7 @@ export function useBackstationApi() {
   async function queryTripOrder(voucherCode: string): Promise<TripOrderResponse> {
     try {
       // 透過 LIFF server API 代理到 Backstation (使用憑證號碼查詢)
-      const response = await $fetch<TripOrderResponse>(`/api/platform-orders/trip/${voucherCode}`)
+      const response = await apiFetch<TripOrderResponse>(`/api/platform-orders/trip/${voucherCode}`)
       return response
     }
     catch (error) {
@@ -144,7 +148,7 @@ export function useBackstationApi() {
   async function queryKlookOrder(resellerReference: string): Promise<KlookOrderResponse> {
     try {
       // 透過 LIFF server API 代理到 Backstation
-      const response = await $fetch<KlookOrderResponse>(`/api/platform-orders/klook/${resellerReference}`)
+      const response = await apiFetch<KlookOrderResponse>(`/api/platform-orders/klook/${resellerReference}`)
       return response
     }
     catch (error) {
