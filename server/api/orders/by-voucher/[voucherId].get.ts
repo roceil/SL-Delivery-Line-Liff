@@ -19,15 +19,6 @@ export default defineEventHandler(async (event) => {
   catch (error: any) {
     console.error('Failed to query order by voucher from Backstation:', error)
 
-    // 如果是 Backstation 回傳的錯誤，保留狀態碼和訊息
-    if (error && typeof error === 'object' && 'statusCode' in error) {
-      throw error
-    }
-
-    // 其他錯誤
-    throw createError({
-      statusCode: 500,
-      message: '查詢訂單失敗',
-    })
+    throw toBackstationError(error, '查詢訂單失敗')
   }
 })

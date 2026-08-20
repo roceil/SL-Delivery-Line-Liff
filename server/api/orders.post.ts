@@ -71,19 +71,6 @@ export default defineEventHandler(async (event): Promise<CreateOrderResponse> =>
       requestBody: payload,
     })
 
-    if (fetchError.statusCode) {
-      throw createError({
-        statusCode: fetchError.statusCode,
-        message: typeof fetchError.data === 'string'
-          ? fetchError.data
-          : (fetchError.data as { message?: string })?.message || fetchError.message || '建立訂單失敗',
-        data: fetchError.data,
-      })
-    }
-
-    throw createError({
-      statusCode: 500,
-      message: '建立訂單失敗',
-    })
+    throw toBackstationError(error, '建立訂單失敗')
   }
 })

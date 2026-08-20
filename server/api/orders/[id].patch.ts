@@ -26,16 +26,6 @@ export default defineEventHandler(async (event) => {
       requestBody: body,
     })
 
-    if (fetchError.statusCode) {
-      throw createError({
-        statusCode: fetchError.statusCode,
-        message: typeof fetchError.data === 'string'
-          ? fetchError.data
-          : (fetchError.data as { message?: string })?.message || fetchError.message || '更新訂單失敗',
-        data: fetchError.data,
-      })
-    }
-
-    throw createError({ statusCode: 500, message: '更新訂單失敗' })
+    throw toBackstationError(error, '更新訂單失敗')
   }
 })

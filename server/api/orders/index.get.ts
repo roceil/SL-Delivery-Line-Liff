@@ -40,14 +40,6 @@ export default defineEventHandler(async (event): Promise<OrderResponse[]> => {
   catch (error) {
     console.error('Failed to fetch orders from Backstation:', error)
 
-    // 如果是 Backstation 回傳的錯誤，保留狀態碼和訊息
-    if (error && typeof error === 'object' && 'statusCode' in error) {
-      throw error
-    }
-
-    throw createError({
-      statusCode: 500,
-      message: '無法取得訂單列表',
-    })
+    throw toBackstationError(error, '無法取得訂單列表')
   }
 })

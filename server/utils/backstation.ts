@@ -23,3 +23,27 @@ export async function backstationFetch<T>(path: string, options: BackstationFetc
     },
   }) as T
 }
+
+/**
+ * 將 Backstation 回傳的錯誤轉為可安全外送的錯誤。
+ *
+ * 直接 re-throw ofetch 的錯誤會把內部網址寫進 message 一路送到瀏覽器
+ * （例如 `[GET] "http://internal-host:3000/api/..." : 404`），既洩漏後台位置，
+ * 使用者也看不懂。因此只取用 Backstation 自己寫的 message（例如
+ * 「找不到對應的 Trip 訂單」），取不到時才退回泛用文字。
+ */
+export function toBackstationError(error: unknown, fallbackMessage: string) {
+  const fetchError = error as {
+    statusCode?: number
+    data?: { message?: string } | string
+    message?: string
+  }
+
+  const data = fetchError.data
+  const backendMessage = typeof data === 'string' ? data : data?.message
+
+  return createError({
+    statusCode: fetchError.statusCode ?? 500,
+    message: backendMessage?.trim() || fallbackMessage,
+  })
+}

@@ -40,14 +40,6 @@ export default defineEventHandler(async (event): Promise<UserResponse> => {
   catch (error) {
     console.error('Failed to update user in Backstation:', error)
 
-    // 如果是 Backstation 回傳的錯誤，保留狀態碼和訊息
-    if (error && typeof error === 'object' && 'statusCode' in error) {
-      throw error
-    }
-
-    throw createError({
-      statusCode: 500,
-      message: '無法更新使用者資料',
-    })
+    throw toBackstationError(error, '無法更新使用者資料')
   }
 })

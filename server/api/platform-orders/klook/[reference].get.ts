@@ -32,15 +32,6 @@ export default defineEventHandler(async (event): Promise<KlookOrderResponse> => 
   catch (error: any) {
     console.error('Failed to query Klook order from Backstation:', error)
 
-    // 如果是 Backstation 回傳的錯誤，保留狀態碼和訊息
-    if (error && typeof error === 'object' && 'statusCode' in error) {
-      throw error
-    }
-
-    // 其他錯誤
-    throw createError({
-      statusCode: 500,
-      message: '查詢 Klook 訂單失敗',
-    })
+    throw toBackstationError(error, '查詢 Klook 訂單失敗')
   }
 })

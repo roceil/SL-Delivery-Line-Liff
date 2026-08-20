@@ -1,3 +1,24 @@
+/**
+ * 將後端回傳的錯誤轉為可顯示的訊息。
+ *
+ * server/api 已刻意保留 Backstation 的 statusCode 與 message（例如「此時段
+ * 已無可用名額」），此處優先採用；取不到時才退回泛用文字，避免把後端說明
+ * 吞掉、讓使用者與客服都看不出真正原因。
+ */
+function toDisplayError(error: unknown, fallback: string): Error {
+  const fetchError = error as {
+    data?: { message?: string, statusMessage?: string } | string
+    message?: string
+  }
+
+  const data = fetchError.data
+  const backendMessage = typeof data === 'string'
+    ? data
+    : (data?.message ?? data?.statusMessage)
+
+  return new Error(backendMessage?.trim() || fallback, { cause: error })
+}
+
 export function useBackstationApi() {
   const { apiFetch } = useApiFetch()
 
@@ -68,7 +89,7 @@ export function useBackstationApi() {
     }
     catch (error) {
       console.error('Failed to fetch delivery points:', error)
-      throw new Error('無法載入配送地點')
+      throw toDisplayError(error, '無法載入配送地點')
     }
   }
 
@@ -83,7 +104,7 @@ export function useBackstationApi() {
     }
     catch (error) {
       console.error('Failed to create order:', error)
-      throw new Error('建立訂單失敗')
+      throw toDisplayError(error, '建立訂單失敗')
     }
   }
 
@@ -141,7 +162,7 @@ export function useBackstationApi() {
     }
     catch (error) {
       console.error('Failed to query Trip order:', error)
-      throw new Error('查詢 Trip 訂單失敗')
+      throw toDisplayError(error, '查詢 Trip 訂單失敗')
     }
   }
 
@@ -153,7 +174,7 @@ export function useBackstationApi() {
     }
     catch (error) {
       console.error('Failed to query Klook order:', error)
-      throw new Error('查詢 Klook 訂單失敗')
+      throw toDisplayError(error, '查詢 Klook 訂單失敗')
     }
   }
 
