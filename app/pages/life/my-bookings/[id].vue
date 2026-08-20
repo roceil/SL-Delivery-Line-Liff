@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { BookingOrder } from '~/types/booking'
-import { SERVICE_PLAN_PRICE } from '~/types/booking'
 
 definePageMeta({
   layout: 'life',
@@ -17,41 +16,6 @@ const order = ref<BookingOrder | null>(null)
 const showCancelConfirm = ref(false)
 const isCancelling = ref(false)
 const cancelError = ref('')
-
-const isCheckoutOpen = ref(false)
-const isRecipientOpen = ref(false)
-
-function onAccordionEnter(el: Element) {
-  const htmlEl = el as HTMLElement
-  htmlEl.style.height = '0'
-  htmlEl.style.overflow = 'hidden'
-  void htmlEl.offsetHeight
-  htmlEl.style.transition = 'height 0.3s ease-in-out'
-  htmlEl.style.height = `${htmlEl.scrollHeight}px`
-}
-
-function onAccordionAfterEnter(el: Element) {
-  const htmlEl = el as HTMLElement
-  htmlEl.style.height = ''
-  htmlEl.style.overflow = ''
-  htmlEl.style.transition = ''
-}
-
-function onAccordionLeave(el: Element) {
-  const htmlEl = el as HTMLElement
-  htmlEl.style.height = `${htmlEl.scrollHeight}px`
-  htmlEl.style.overflow = 'hidden'
-  void htmlEl.offsetHeight
-  htmlEl.style.transition = 'height 0.3s ease-in-out'
-  htmlEl.style.height = '0'
-}
-
-function onAccordionAfterLeave(el: Element) {
-  const htmlEl = el as HTMLElement
-  htmlEl.style.height = ''
-  htmlEl.style.overflow = ''
-  htmlEl.style.transition = ''
-}
 
 onMounted(async () => {
   order.value = await bookingStore.fetchOrderById(orderId)
@@ -75,41 +39,6 @@ async function cancelOrder() {
     isCancelling.value = false
   }
 }
-
-function formatDate(dateString: string) {
-  if (!dateString)
-    return '—'
-  const [year = '', month = '0', day = '0'] = dateString.split('-')
-  return `${year}/${Number(month)}/${Number(day)}`
-}
-
-async function copyToClipboard(text: string) {
-  await navigator.clipboard.writeText(text)
-}
-
-// ── 訂單步驟 ──────────────────────────────────────────────
-const steps = [
-  { label: '訂單確認中', icon: 'lucide:receipt' },
-  { label: '訂單成立，待交付行李', icon: 'lucide:package' },
-  { label: '已收件', icon: 'lucide:store' },
-  { label: '運送中', icon: 'lucide:truck' },
-  { label: '已送達', icon: 'lucide:map-pin' },
-  { label: '已完成', icon: 'lucide:check' },
-]
-
-const activeStepIndex = computed(() => {
-  switch (order.value?.status) {
-    case 'pending': return 0
-    case 'confirmed':
-    case 'assigned': return 1
-    case 'received': return 2
-    case 'in_delivery':
-    case 'in_transit': return 3
-    case 'delivered':
-    case 'completed': return 5
-    default: return -1
-  }
-})
 
 const statusLabel = computed(() => {
   const config: Record<string, string> = {
@@ -146,64 +75,6 @@ const statusSubLabel = computed(() => {
 const isCancelled = computed(() =>
   order.value?.status === 'cancelled',
 )
-
-// 服務方案中文 + 單價（與 OrderCard 同一份對應）
-const SERVICE_PLAN_LABEL: Record<string, string> = {
-  one_way: '單程運送',
-  round_trip: '雙程套票',
-  merchant: '商家代售',
-}
-
-const servicePlanLabel = computed(() => {
-  const plan = order.value?.servicePlan
-  if (!plan)
-    return '—'
-  return SERVICE_PLAN_LABEL[plan] ?? plan
-})
-
-const subtotalAmount = computed<number | null>(() => {
-  const plan = order.value?.servicePlan
-  if (!plan)
-    return null
-  const unit = SERVICE_PLAN_PRICE[plan]
-  if (unit == null)
-    return null
-  return unit * (order.value?.luggageCount ?? 0)
-})
-
-const paymentStatusLabel = computed(() => {
-  const map: Record<string, string> = {
-    unpaid: '未付款',
-    paid: '已付款',
-    no_refund_required: '無須退款',
-    pending_refund: '待退款',
-    refunding: '退款處理中',
-    refunded: '已退款',
-  }
-  const ps = order.value?.paymentStatus
-  if (!ps)
-    return '—'
-  return map[ps] ?? ps
-})
-
-const recipientNameDisplay = computed(() =>
-  order.value?.recipientName?.trim() || order.value?.userName || '—',
-)
-
-const recipientPhoneDisplay = computed(() =>
-  order.value?.recipientPhone?.trim() || order.value?.phone || '—',
-)
-
-const activeStepTime = computed(() => {
-  if (!order.value)
-    return ''
-  const d = new Date(order.value.updatedAt)
-  const month = d.getMonth() + 1
-  const day = d.getDate()
-  const hours = String(d.getHours()).padStart(2, '0')
-  const minutes = String(d.getMinutes()).padStart(2, '0')
-  return `${month}/${day} ${hours}:${minutes}`
-})
 
 const canCancel = computed(() =>
   order.value != null && ['pending', 'confirmed'].includes(order.value.status as string),
@@ -308,62 +179,11 @@ const sheetStyle = computed(() => {
     <!-- 全螢幕容器（蓋過底部導覽列） -->
     <div class="fixed inset-0 z-20 overflow-hidden">
       <!-- 第一層：地圖 -->
-      <div class="absolute inset-0 bg-[#e8edf2]">
-        <!-- 格線佔位 -->
-        <svg
-          class="absolute inset-0 size-full opacity-20"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <pattern
-              id="map-grid"
-              width="40"
-              height="40"
-              patternUnits="userSpaceOnUse"
-            >
-              <path
-                d="M 40 0 L 0 0 0 40"
-                fill="none"
-                stroke="#64748b"
-                stroke-width="0.5"
-              />
-            </pattern>
-          </defs>
-          <rect
-            width="100%"
-            height="100%"
-            fill="url(#map-grid)"
-          />
-        </svg>
-
-        <!-- 定位針 -->
-        <div
-          class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full"
-        >
-          <Icon
-            name="lucide:map-pin"
-            class="text-3xl text-primary-300"
-          />
-        </div>
-
-        <!-- 浮動狀態欄 -->
-        <div
-          class="
-            absolute top-4 right-4 left-4 flex items-center gap-2 rounded-sm
-            border border-white px-4 py-3 shadow-down-200
-          "
-          style="background: linear-gradient(6deg, #fff 0%, rgba(255,255,255,0.5) 100%); backdrop-filter: blur(12px);"
-        >
-          <div class="flex flex-1 items-center gap-2">
-            <div
-              class="size-1.5 rounded-rounded"
-              :class="isCancelled ? 'bg-neutral-400' : 'bg-primary-300'"
-            ></div>
-            <span class="text-base font-bold text-neutral-900">{{ statusLabel }}</span>
-          </div>
-          <span class="text-sm text-neutral-600">{{ statusSubLabel }}</span>
-        </div>
-      </div>
+      <LifeOrderDetailMap
+        :status-label="statusLabel"
+        :status-sub-label="statusSubLabel"
+        :is-cancelled="isCancelled"
+      />
 
       <!-- 第二層：訂單底部面板 -->
       <div
@@ -405,315 +225,16 @@ const sheetStyle = computed(() => {
         <!-- 可捲動的訂單內容 -->
         <div class="flex-1 overflow-y-auto">
           <div class="flex flex-col gap-1 bg-neutral-100">
-            <!-- 運送紀錄 -->
-            <div class="flex flex-col gap-4 bg-white p-5">
-              <div class="flex items-center gap-2">
-                <div
-                  class="size-1.5 rounded-rounded"
-                  style="background: linear-gradient(131deg, #4090e8 16%, #306cf7 62%)"
-                ></div>
-                <h2 class="flex-1 text-lg font-bold text-neutral-900">
-                  運送紀錄
-                </h2>
-                <Icon
-                  name="lucide:chevron-right"
-                  class="text-xl text-neutral-600"
-                />
-              </div>
+            <LifeOrderProgressSteps
+              :order="order"
+              :is-cancelled="isCancelled"
+            />
 
-              <div class="rounded-sm bg-neutral-100 p-3">
-                <!-- 行程方向 -->
-                <div
-                  class="
-                    flex items-center gap-3 border-b border-neutral-200 pb-3
-                  "
-                >
-                  <span
-                    class="rounded-rounded px-2 py-0.5 text-[11px] font-medium"
-                    :style="{ backgroundColor: '#e9f4ef', color: '#229464' }"
-                  >
-                    去程
-                  </span>
-                  <div
-                    class="
-                      flex min-w-0 items-center gap-1 text-sm text-neutral-600
-                    "
-                  >
-                    <span class="shrink-0">{{ order.pickupLocation.name }}</span>
-                    <Icon
-                      name="lucide:arrow-right"
-                      class="shrink-0 text-xs"
-                    />
-                    <span class="truncate">{{ order.deliveryLocation.name }}</span>
-                  </div>
-                </div>
+            <LifeOrderInfoCard :order="order" />
 
-                <!-- 已取消訊息（取代步驟條） -->
-                <div
-                  v-if="isCancelled"
-                  class="
-                    mt-2 flex items-center gap-3 rounded-sm bg-neutral-100 p-3
-                  "
-                >
-                  <div class="flex rounded-rounded bg-neutral-200 p-2">
-                    <Icon
-                      name="lucide:circle-x"
-                      class="text-xl text-neutral-500"
-                    />
-                  </div>
-                  <div class="flex flex-1 flex-col gap-0.5">
-                    <span class="text-base font-bold text-neutral-700">
-                      此訂單已取消
-                    </span>
-                    <span class="text-sm text-neutral-500">
-                      取消時間 {{ activeStepTime }}
-                    </span>
-                  </div>
-                </div>
+            <LifeOrderCheckoutSummary :order="order" />
 
-                <!-- 步驟條 -->
-                <div
-                  v-else
-                  class="mt-2 flex flex-col"
-                >
-                  <div
-                    v-for="(step, index) in steps"
-                    :key="index"
-                    class="flex h-12 items-start gap-2"
-                  >
-                    <!-- 圖示 + 連接線 -->
-                    <div class="flex w-8 flex-col items-center">
-                      <div
-                        class="
-                          flex size-8 shrink-0 items-center justify-center
-                          rounded-full
-                        "
-                        :class="
-                          index === activeStepIndex
-                            ? 'bg-primary-300'
-                            : 'bg-neutral-200'
-                        "
-                      >
-                        <Icon
-                          :name="step.icon"
-                          class="text-sm"
-                          :class="
-                            index === activeStepIndex
-                              ? 'text-white'
-                              : 'text-neutral-500'
-                          "
-                        />
-                      </div>
-                      <div
-                        v-if="index < steps.length - 1"
-                        class="mt-1 w-px flex-1"
-                        :class="
-                          index < activeStepIndex
-                            ? 'bg-primary-300'
-                            : 'bg-neutral-200'
-                        "
-                      ></div>
-                    </div>
-
-                    <!-- 步驟名稱 + 時間 -->
-                    <div class="flex flex-1 items-start justify-between pt-1">
-                      <span
-                        class="text-base font-medium"
-                        :class="
-                          index === activeStepIndex
-                            ? 'text-neutral-900'
-                            : 'text-neutral-600'
-                        "
-                      >
-                        {{ step.label }}
-                      </span>
-                      <span
-                        v-if="index === activeStepIndex"
-                        class="shrink-0 text-xs text-neutral-600"
-                      >
-                        {{ activeStepTime }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 訂單資訊 -->
-            <div class="flex flex-col gap-3 bg-white p-5">
-              <div class="flex items-center gap-1">
-                <Icon
-                  name="lucide:receipt"
-                  class="text-sm text-neutral-900"
-                />
-                <h2 class="flex-1 text-lg font-bold text-neutral-900">
-                  訂單資訊
-                </h2>
-              </div>
-
-              <!-- 地點卡片 -->
-              <div class="flex flex-col gap-3">
-                <div
-                  class="flex items-center gap-2 rounded-sm bg-primary-100 p-3"
-                >
-                  <div class="flex rounded-rounded bg-[#e4effb] p-2">
-                    <Icon
-                      name="lucide:store"
-                      class="text-xl text-primary-300"
-                    />
-                  </div>
-                  <span class="font-medium text-neutral-900">
-                    {{ order.pickupLocation.name }}
-                  </span>
-                </div>
-                <div class="flex justify-center">
-                  <Icon
-                    name="lucide:move-vertical"
-                    class="text-2xl text-neutral-600"
-                  />
-                </div>
-                <div
-                  class="flex items-center gap-2 rounded-sm bg-primary-100 p-3"
-                >
-                  <div class="flex rounded-rounded bg-[#e4effb] p-2">
-                    <Icon
-                      name="lucide:map-pin"
-                      class="text-xl text-primary-300"
-                    />
-                  </div>
-                  <span class="flex-1 font-medium text-neutral-900">
-                    {{ order.deliveryLocation.name }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- 詳細欄位 -->
-              <div class="flex flex-col gap-1 pt-1">
-                <div class="flex items-center gap-2 text-base">
-                  <span class="min-w-[76px] shrink-0 text-neutral-600">訂單編號</span>
-                  <span class="flex-1 text-right text-neutral-900">
-                    {{ order.voucherId || order.id.substring(0, 8) }}
-                  </span>
-                  <button
-                    type="button"
-                    @click="copyToClipboard(order.voucherId || order.id)"
-                  >
-                    <Icon
-                      name="lucide:copy"
-                      class="text-sm text-neutral-600"
-                    />
-                  </button>
-                </div>
-                <div class="flex items-center gap-2 text-base">
-                  <span class="min-w-[76px] shrink-0 text-neutral-600">行李數量</span>
-                  <span class="flex-1 text-right text-neutral-900">
-                    {{ order.luggageCount }} 件
-                  </span>
-                </div>
-                <div class="flex items-center gap-2 text-base">
-                  <span class="min-w-[76px] shrink-0 text-neutral-600">去程日期</span>
-                  <span class="flex-1 text-right text-neutral-900">
-                    {{ formatDate(order.bookingDate) }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 結帳明細 -->
-            <div class="flex flex-col bg-white">
-              <button
-                type="button"
-                class="flex items-center gap-1 px-5 py-5"
-                @click="isCheckoutOpen = !isCheckoutOpen"
-              >
-                <Icon
-                  name="lucide:wallet"
-                  class="text-sm text-neutral-900"
-                />
-                <h2 class="flex-1 text-left text-lg font-bold text-neutral-900">
-                  結帳明細
-                </h2>
-                <Icon
-                  :name="isCheckoutOpen ? 'lucide:chevron-up' : 'lucide:chevron-down'"
-                  class="text-2xl text-neutral-600"
-                />
-              </button>
-              <Transition
-                @enter="onAccordionEnter"
-                @after-enter="onAccordionAfterEnter"
-                @leave="onAccordionLeave"
-                @after-leave="onAccordionAfterLeave"
-              >
-                <div
-                  v-show="isCheckoutOpen"
-                  class="flex flex-col gap-2 px-5 pb-5"
-                >
-                  <div class="flex items-center gap-2 text-base">
-                    <span class="min-w-[76px] shrink-0 text-neutral-600">服務方案</span>
-                    <span class="flex-1 text-right text-neutral-900">{{ servicePlanLabel }}</span>
-                  </div>
-                  <div class="flex items-center gap-2 text-base">
-                    <span class="min-w-[76px] shrink-0 text-neutral-600">數量</span>
-                    <span class="flex-1 text-right text-neutral-900">{{ order.luggageCount }} 件</span>
-                  </div>
-                  <div class="flex items-center gap-2 text-base">
-                    <span class="min-w-[76px] shrink-0 text-neutral-600">小計</span>
-                    <span class="flex-1 text-right text-neutral-900">
-                      <template v-if="subtotalAmount != null">
-                        NT$ {{ subtotalAmount.toLocaleString() }}
-                      </template>
-                      <template v-else>—</template>
-                    </span>
-                  </div>
-                  <div class="my-1 h-px bg-neutral-100"></div>
-                  <div class="flex items-center gap-2 text-base">
-                    <span class="min-w-[76px] shrink-0 text-neutral-600">付款狀態</span>
-                    <span class="flex-1 text-right text-neutral-900">{{ paymentStatusLabel }}</span>
-                  </div>
-                </div>
-              </Transition>
-            </div>
-
-            <!-- 領件人 -->
-            <div class="flex flex-col bg-white pb-[106px]">
-              <button
-                type="button"
-                class="flex items-center gap-1 px-5 py-5"
-                @click="isRecipientOpen = !isRecipientOpen"
-              >
-                <Icon
-                  name="lucide:user"
-                  class="text-sm text-neutral-900"
-                />
-                <h2 class="flex-1 text-left text-lg font-bold text-neutral-900">
-                  領件人
-                </h2>
-                <Icon
-                  :name="isRecipientOpen ? 'lucide:chevron-up' : 'lucide:chevron-down'"
-                  class="text-2xl text-neutral-600"
-                />
-              </button>
-              <Transition
-                @enter="onAccordionEnter"
-                @after-enter="onAccordionAfterEnter"
-                @leave="onAccordionLeave"
-                @after-leave="onAccordionAfterLeave"
-              >
-                <div
-                  v-show="isRecipientOpen"
-                  class="flex flex-col gap-2 px-5 pb-5"
-                >
-                  <div class="flex items-center gap-2 text-base">
-                    <span class="min-w-[76px] shrink-0 text-neutral-600">姓名</span>
-                    <span class="flex-1 text-right text-neutral-900">{{ recipientNameDisplay }}</span>
-                  </div>
-                  <div class="flex items-center gap-2 text-base">
-                    <span class="min-w-[76px] shrink-0 text-neutral-600">聯絡電話</span>
-                    <span class="flex-1 text-right text-neutral-900">{{ recipientPhoneDisplay }}</span>
-                  </div>
-                </div>
-              </Transition>
-            </div>
+            <LifeOrderRecipientCard :order="order" />
           </div>
         </div>
       </div>
@@ -749,53 +270,12 @@ const sheetStyle = computed(() => {
       </div>
     </div>
 
-    <!-- 取消確認對話框 -->
-    <div
-      v-if="showCancelConfirm"
-      class="
-        fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4
-      "
-      @click.self="showCancelConfirm = false"
-    >
-      <div class="w-full max-w-sm rounded-sm bg-white p-6 shadow-down-200">
-        <h3 class="mb-4 text-lg font-bold text-neutral-900">
-          確認取消訂單
-        </h3>
-        <p class="mb-4 text-base text-neutral-600">
-          確定要取消此訂單嗎？此操作無法復原。
-        </p>
-        <div
-          v-if="cancelError"
-          class="mb-4 rounded-sm bg-danger-100 p-3 text-sm text-danger-300"
-        >
-          {{ cancelError }}
-        </div>
-        <div class="flex gap-3">
-          <button
-            type="button"
-            class="
-              flex-1 rounded-sm border border-neutral-200 py-2.5 text-base
-              font-medium text-neutral-900
-            "
-            :disabled="isCancelling"
-            @click="showCancelConfirm = false"
-          >
-            不，返回
-          </button>
-          <button
-            type="button"
-            class="
-              flex-1 rounded-sm bg-danger-300 py-2.5 text-base font-medium
-              text-white
-              disabled:opacity-50
-            "
-            :disabled="isCancelling"
-            @click="cancelOrder"
-          >
-            {{ isCancelling ? '處理中...' : '確定取消' }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <LifeCancelOrderDialog
+      :open="showCancelConfirm"
+      :is-cancelling="isCancelling"
+      :error-message="cancelError"
+      @close="showCancelConfirm = false"
+      @confirm="cancelOrder"
+    />
   </template>
 </template>
