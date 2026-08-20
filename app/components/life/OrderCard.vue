@@ -78,7 +78,7 @@ function closeVoucher() {
       </div>
       <div class="flex items-center gap-4">
         <span class="w-[60px] shrink-0 text-sm text-neutral-600">訂單編號</span>
-        <span class="text-sm text-neutral-900">{{ order.voucherId || order.id.substring(0, 8) }}</span>
+        <span class="text-sm text-neutral-900">{{ order.orderNumber || order.id }}</span>
       </div>
       <div class="flex items-center gap-4">
         <span class="w-[60px] shrink-0 text-sm text-neutral-600">使用日期</span>
@@ -192,7 +192,7 @@ function closeVoucher() {
                 <span class="truncate">{{ order.deliveryLocation.name }}</span>
               </div>
               <div class="flex items-center gap-2 text-sm">
-                <span class="shrink-0 text-neutral-600">訂單編號</span>
+                <span class="shrink-0 text-neutral-600">取件憑證碼</span>
                 <span class="text-neutral-900">
                   {{ order.voucherId || order.id }}
                 </span>

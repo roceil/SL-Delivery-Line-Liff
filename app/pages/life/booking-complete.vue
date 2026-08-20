@@ -32,6 +32,8 @@ const paymentMessage = computed(() => {
 })
 
 // 顯示用 computed：fetched order 優先，fallback 到 form store
+// 訂單編號（LQP…）供客服與後台對帳；取件憑證碼（nano-id）是 QR Code 的核銷代碼，兩者不同
+const displayOrderNumber = computed(() => fetchedOrder.value?.orderNumber || bookingFormStore.createdOrderId || '')
 const displayVoucherId = computed(() => fetchedOrder.value?.voucherId || bookingFormStore.createdVoucherId || '')
 const displayPickupLocation = computed(() => fetchedOrder.value?.pickupLocation || bookingFormStore.pickupLocation)
 const displayDeliveryLocation = computed(() => fetchedOrder.value?.deliveryLocation || bookingFormStore.deliveryLocation)
@@ -40,19 +42,31 @@ const displayBookingDate = computed(() => fetchedOrder.value?.bookingDate || boo
 const displayServicePlan = computed(() => fetchedOrder.value?.servicePlan || bookingFormStore.serviceType)
 const displayServicePlanLabel = computed(() => displayServicePlan.value === 'round_trip' ? '雙程套票' : '單程運送')
 const displayUnitPrice = computed(() => SERVICE_PLAN_PRICE[displayServicePlan.value as string] ?? bookingFormStore.unitPrice)
-const displayTotalPrice = computed(() => displayUnitPrice.value * displayLuggageCount.value)
+// 總計以後台費用明細為準（即實際收款金額），取不到時才回退到單價 × 件數
+const displayTotalPrice = computed(() =>
+  fetchedOrder.value?.totalAmount ?? displayUnitPrice.value * displayLuggageCount.value,
+)
 const displayRecipientName = computed(() => fetchedOrder.value?.recipientName || fetchedOrder.value?.userName || bookingFormStore.recipientName)
 const displayRecipientPhone = computed(() => fetchedOrder.value?.recipientPhone || fetchedOrder.value?.phone || bookingFormStore.recipientPhone)
 
 // 若 store 中無訂單資料（付款後返回時 store 已清空），從 sessionStorage 還原並撈訂單
 onMounted(async () => {
-  if (!bookingFormStore.createdOrderId) {
+  // 訂單編號優先取自網址（金流導回時帶上），sessionStorage 僅作為備援。
+  // sessionStorage 是分頁級的，客人關掉分頁、在新分頁開啟或重新整理都會取不到，
+  // 那時訂單其實已付款成功，卻只會看到一片空白。
+  const orderNoFromQuery = route.query.orderNo as string | undefined
+
+  if (orderNoFromQuery) {
+    bookingFormStore.setCreatedOrder(orderNoFromQuery, bookingFormStore.createdVoucherId || undefined)
+  }
+  else if (!bookingFormStore.createdOrderId) {
     const orderId = sessionStorage.getItem('payment_order_id')
     const voucherId = sessionStorage.getItem('payment_voucher_id')
     if (orderId) {
       bookingFormStore.setCreatedOrder(orderId, voucherId || undefined)
     }
   }
+
   sessionStorage.removeItem('payment_order_id')
   sessionStorage.removeItem('payment_voucher_id')
 
@@ -205,11 +219,26 @@ function viewOrder() {
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">訂單編號</span>
               <div class="flex items-center gap-1">
-                <span class="text-neutral-900">{{ displayVoucherId || '—' }}</span>
+                <span class="text-neutral-900">{{ displayOrderNumber || '—' }}</span>
                 <button
-                  v-if="displayVoucherId"
-                  @click="copyToClipboard(displayVoucherId)"
+                  v-if="displayOrderNumber"
+                  @click="copyToClipboard(displayOrderNumber)"
                 >
+                  <Icon
+                    name="lucide:copy"
+                    class="text-base text-neutral-500"
+                  />
+                </button>
+              </div>
+            </div>
+            <div
+              v-if="displayVoucherId"
+              class="flex items-center justify-between"
+            >
+              <span class="text-neutral-600">取件憑證碼</span>
+              <div class="flex items-center gap-1">
+                <span class="text-neutral-900">{{ displayVoucherId }}</span>
+                <button @click="copyToClipboard(displayVoucherId)">
                   <Icon
                     name="lucide:copy"
                     class="text-base text-neutral-500"

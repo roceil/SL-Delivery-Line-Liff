@@ -236,6 +236,7 @@ export const useBookingStore = defineStore('booking', () => {
       // 從 API 載入訂單列表
       const response = await apiFetch<{
         id: string
+        orderNumber?: string
         voucherId: string
         userId: number
         category: string
@@ -270,6 +271,7 @@ export const useBookingStore = defineStore('booking', () => {
         response.map(async (apiOrder) => {
           const order: BookingOrder = {
             id: apiOrder.id,
+            orderNumber: apiOrder.orderNumber,
             voucherId: apiOrder.voucherId,
             userId: lineStore.userId || '',
             userName: apiOrder.lineName,
@@ -325,6 +327,7 @@ export const useBookingStore = defineStore('booking', () => {
       // 從 API 載入單一訂單（API 路徑只需 orderId，不需 userId）
       const apiOrder = await apiFetch<{
         id: string
+        orderNumber?: string
         voucherId: string
         category: string
         lineName: string
@@ -333,6 +336,7 @@ export const useBookingStore = defineStore('booking', () => {
         pickupTime: string
         luggageCount: number
         servicePlan?: string | null
+        totalAmount?: number | null
         paymentStatus?: string | null
         recipientName?: string | null
         recipientPhone?: string | null
@@ -359,6 +363,7 @@ export const useBookingStore = defineStore('booking', () => {
       // 轉換為本地格式
       const order: BookingOrder = {
         id: apiOrder.id,
+        orderNumber: apiOrder.orderNumber,
         voucherId: apiOrder.voucherId,
         userId: lineStore.userId || '',
         userName: apiOrder.lineName,
@@ -368,6 +373,7 @@ export const useBookingStore = defineStore('booking', () => {
         pickupTime: apiOrder.pickupTime,
         luggageCount: apiOrder.luggageCount,
         servicePlan: apiOrder.servicePlan ?? null,
+        totalAmount: apiOrder.totalAmount ?? null,
         paymentStatus: apiOrder.paymentStatus ?? null,
         recipientName: apiOrder.recipientName ?? null,
         recipientPhone: apiOrder.recipientPhone ?? null,

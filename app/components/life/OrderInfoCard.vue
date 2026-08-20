@@ -70,11 +70,29 @@ async function copyToClipboard(text: string) {
       <div class="flex items-center gap-2 text-base">
         <span class="min-w-[76px] shrink-0 text-neutral-600">訂單編號</span>
         <span class="flex-1 text-right text-neutral-900">
-          {{ order.voucherId || order.id.substring(0, 8) }}
+          {{ order.orderNumber || order.id }}
         </span>
         <button
           type="button"
-          @click="copyToClipboard(order.voucherId || order.id)"
+          @click="copyToClipboard(order.orderNumber || order.id)"
+        >
+          <Icon
+            name="lucide:copy"
+            class="text-sm text-neutral-600"
+          />
+        </button>
+      </div>
+      <div
+        v-if="order.voucherId"
+        class="flex items-center gap-2 text-base"
+      >
+        <span class="min-w-[76px] shrink-0 text-neutral-600">取件憑證碼</span>
+        <span class="flex-1 text-right text-neutral-900">
+          {{ order.voucherId }}
+        </span>
+        <button
+          type="button"
+          @click="copyToClipboard(order.voucherId)"
         >
           <Icon
             name="lucide:copy"
