@@ -345,6 +345,7 @@ export const useBookingStore = defineStore('booking', () => {
         statusTimeline?: Record<string, string> | null
         legs?: OrderLegs | null
         paymentStatus?: string | null
+        paymentTradeData?: { PaymentType?: string } | null
         recipientName?: string | null
         recipientPhone?: string | null
         status: string
@@ -384,6 +385,8 @@ export const useBookingStore = defineStore('booking', () => {
         statusTimeline: apiOrder.statusTimeline ?? null,
         legs: apiOrder.legs ?? null,
         paymentStatus: apiOrder.paymentStatus ?? null,
+        // 付款方式取自藍新回傳的交易資料，不用前端表單的暫存值
+        paymentMethod: apiOrder.paymentTradeData?.PaymentType ?? null,
         recipientName: apiOrder.recipientName ?? null,
         recipientPhone: apiOrder.recipientPhone ?? null,
         pickupLocation: {

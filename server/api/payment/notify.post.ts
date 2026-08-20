@@ -24,7 +24,10 @@ export default defineEventHandler(async (event) => {
       merchantOrderNo: callback.merchantOrderNo,
     })
     const code = encodeURIComponent(callback.status || 'unknown')
-    return sendRedirect(event, `/life/booking-complete?Status=FAILED&reason=newebpay-status&code=${code}`, 302)
+    // 帶上藍新的說明原文，完成頁直接顯示；失敗代碼的中文對照只有藍新規格書有，
+    // 我方自行翻譯只會猜錯，因此不做轉換
+    const message = encodeURIComponent((callback.message || '').slice(0, 100))
+    return sendRedirect(event, `/life/booking-complete?Status=FAILED&reason=newebpay-status&code=${code}&message=${message}`, 302)
   }
 
   const outcome = await markOrderPaid(

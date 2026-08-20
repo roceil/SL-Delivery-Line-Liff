@@ -14,40 +14,126 @@ const bookingStore = useBookingStore()
 // 從 Backstation 取得的訂單資料（付款後 store 已清空，需從後端撈完整資料）
 const fetchedOrder = ref<BookingOrder | null>(null)
 
-// 藍新金流回調結果（從 URL query params 取得）
-const paymentStatus = computed(() => {
-  const status = route.query.Status as string | undefined
-  if (!status)
-    return null
-  return status === 'SUCCESS' ? 'success' : 'failed'
-})
+/**
+ * 網址帶回的藍新結果 —— 只是「參考」，不是事實。
+ *
+ * 網址可以被改，也可能與後台不同步（藍新收到錢但寫入後台失敗）。
+ * 因此付款狀態與大標題一律以訂單的 paymentStatus 為準，
+ * 網址的 Status / reason 只用來補一句失敗原因 —— 那是資料庫查不到的資訊。
+ */
+const callbackStatus = computed(() => (route.query.Status as string | undefined) ?? null)
+const callbackReason = computed(() => (route.query.reason as string | undefined) ?? null)
 
-const paymentMessage = computed(() => {
-  const status = route.query.Status as string | undefined
-  if (!status)
+/** 訂單資料是否還在撈 —— 撈完之前不顯示任何金額與件數 */
+const isOrderLoading = ref(true)
+/** 撈不到訂單（沒有訂單編號、或 API 失敗） */
+const hasOrderError = computed(() => !isOrderLoading.value && fetchedOrder.value === null)
+
+/**
+ * 我方自行判定的失敗原因，對應 server/api/payment/notify.post.ts 送出的 reason。
+ *
+ * 前五項都是回呼驗簽失敗 —— 差別只在壞在哪一層，對客人而言結果相同：
+ * 我們無法確認這筆付款，只能請他聯繫客服。
+ * newebpay-status 不列在這裡，那要用藍新回傳的說明原文。
+ */
+const REASON_MESSAGE: Record<string, string> = {
+  'missing-fields': '無法驗證金流回應，請聯繫客服確認付款結果',
+  'sha-mismatch': '無法驗證金流回應，請聯繫客服確認付款結果',
+  'decrypt-error': '無法驗證金流回應，請聯繫客服確認付款結果',
+  'missing-order-no': '無法驗證金流回應，請聯繫客服確認付款結果',
+  'checkcode-mismatch': '無法驗證金流回應，請聯繫客服確認付款結果',
+  'amount-mismatch': '付款金額與訂單金額不符，款項未入帳',
+}
+
+/**
+ * 付款失敗時的說明。
+ *
+ * 藍新回報的原文優先 —— 失敗代碼的中文對照只存在於藍新規格書，
+ * 我方自行翻譯會猜錯也會過時。網址沒帶原因就不多說。
+ */
+const failureMessage = computed(() => {
+  const raw = route.query.message as string | undefined
+  const fromNewebpay = raw?.trim().slice(0, 100)
+  if (fromNewebpay)
+    return fromNewebpay
+
+  const reason = callbackReason.value
+  if (!reason)
     return ''
-  if (status === 'SUCCESS')
-    return '付款成功！'
-  return `付款失敗（${status}）`
+  return REASON_MESSAGE[reason] ?? '付款未完成，請聯繫客服協助確認'
 })
 
-// 顯示用 computed：fetched order 優先，fallback 到 form store
-// 訂單編號（LQP…）供客服與後台對帳；取件憑證碼（nano-id）是 QR Code 的核銷代碼，兩者不同
+/**
+ * 付款結果，一律以資料庫為準。
+ *
+ * paid            → 已付款
+ * unpaid + 藍新說成功 → 錢收到了但後台還沒同步，只能說「確認中」，
+ *                      不能報喜也不能報憂，否則客人會重複付款
+ * unpaid + 其他    → 尚未付款
+ */
+const paymentResult = computed<'paid' | 'confirming' | 'unpaid' | null>(() => {
+  if (isOrderLoading.value || !fetchedOrder.value)
+    return null
+
+  const status = fetchedOrder.value.paymentStatus
+  if (status === 'paid')
+    return 'paid'
+  if (callbackStatus.value === 'SUCCESS')
+    return 'confirming'
+  return 'unpaid'
+})
+
+const paymentStatusLabel = computed(() => {
+  const map: Record<string, string> = {
+    paid: '已付款',
+    confirming: '確認中',
+    unpaid: '尚未付款',
+    refunded: '已退款',
+    refunding: '退款處理中',
+    pending_refund: '待退款',
+    no_refund_required: '無須退款',
+  }
+  // 退款類狀態直接照實顯示，不套用付款成功/失敗那套判斷
+  const raw = fetchedOrder.value?.paymentStatus
+  if (raw && raw !== 'paid' && raw !== 'unpaid')
+    return map[raw] ?? raw
+  return map[paymentResult.value ?? ''] ?? '—'
+})
+
+const headline = computed(() => {
+  switch (paymentResult.value) {
+    case 'paid': return '付款成功！'
+    case 'confirming': return '付款確認中'
+    case 'unpaid': return '尚未完成付款'
+    default: return ''
+  }
+})
+
+// 顯示用 computed：一律取自後端訂單。
+// 不再回退到 bookingFormStore —— 付款導回後表單已清空，
+// 退回去只會拿到預設值（1 件），把假資料當成客人的訂單顯示。
 const displayOrderNumber = computed(() => fetchedOrder.value?.orderNumber || bookingFormStore.createdOrderId || '')
-const displayVoucherId = computed(() => fetchedOrder.value?.voucherId || bookingFormStore.createdVoucherId || '')
-const displayPickupLocation = computed(() => fetchedOrder.value?.pickupLocation || bookingFormStore.pickupLocation)
-const displayDeliveryLocation = computed(() => fetchedOrder.value?.deliveryLocation || bookingFormStore.deliveryLocation)
-const displayLuggageCount = computed(() => fetchedOrder.value?.luggageCount ?? bookingFormStore.luggageCount)
-const displayBookingDate = computed(() => fetchedOrder.value?.bookingDate || bookingFormStore.bookingDate)
-const displayServicePlan = computed(() => fetchedOrder.value?.servicePlan || bookingFormStore.serviceType)
-const displayServicePlanLabel = computed(() => displayServicePlan.value === 'round_trip' ? '雙程套票' : '單程運送')
-const displayUnitPrice = computed(() => SERVICE_PLAN_PRICE[displayServicePlan.value as string] ?? bookingFormStore.unitPrice)
-// 總計以後台費用明細為準（即實際收款金額），取不到時才回退到單價 × 件數
-const displayTotalPrice = computed(() =>
-  fetchedOrder.value?.totalAmount ?? displayUnitPrice.value * displayLuggageCount.value,
-)
-const displayRecipientName = computed(() => fetchedOrder.value?.recipientName || fetchedOrder.value?.userName || bookingFormStore.recipientName)
-const displayRecipientPhone = computed(() => fetchedOrder.value?.recipientPhone || fetchedOrder.value?.phone || bookingFormStore.recipientPhone)
+const displayVoucherId = computed(() => fetchedOrder.value?.voucherId || '')
+const displayPickupLocation = computed(() => fetchedOrder.value?.pickupLocation ?? null)
+const displayDeliveryLocation = computed(() => fetchedOrder.value?.deliveryLocation ?? null)
+const displayLuggageCount = computed(() => fetchedOrder.value?.luggageCount ?? null)
+const displayBookingDate = computed(() => fetchedOrder.value?.bookingDate || '')
+const displayServicePlan = computed(() => fetchedOrder.value?.servicePlan ?? null)
+const displayServicePlanLabel = computed(() => {
+  if (!displayServicePlan.value)
+    return '—'
+  return displayServicePlan.value === 'round_trip' ? '雙程套票' : '單程運送'
+})
+const displayUnitPrice = computed(() => {
+  const plan = displayServicePlan.value
+  if (!plan)
+    return null
+  return SERVICE_PLAN_PRICE[plan as string] ?? null
+})
+/** 總計以後台費用明細為準，即實際收款金額 */
+const displayTotalPrice = computed(() => fetchedOrder.value?.totalAmount ?? null)
+const displayRecipientName = computed(() => fetchedOrder.value?.recipientName || fetchedOrder.value?.userName || '')
+const displayRecipientPhone = computed(() => fetchedOrder.value?.recipientPhone || fetchedOrder.value?.phone || '')
 
 // 若 store 中無訂單資料（付款後返回時 store 已清空），從 sessionStorage 還原並撈訂單
 onMounted(async () => {
@@ -75,6 +161,7 @@ onMounted(async () => {
   if (orderId) {
     fetchedOrder.value = await bookingStore.fetchOrderById(orderId)
   }
+  isOrderLoading.value = false
 })
 
 function formatDate(date: string) {
@@ -83,13 +170,22 @@ function formatDate(date: string) {
   return date.replace(/-/g, '/')
 }
 
+// 付款方式以藍新實際回傳的為準；沒有交易資料代表還沒付款成功
 const paymentMethodLabel = computed(() => {
-  const map = {
-    line_pay: 'LINE Pay',
-    credit_card: '信用卡',
-    apple_pay: 'Apple Pay',
+  const map: Record<string, string> = {
+    CREDIT: '信用卡',
+    WEBATM: '網路 ATM',
+    VACC: 'ATM 轉帳',
+    CVS: '超商代碼繳費',
+    BARCODE: '超商條碼繳費',
+    ANDROIDPAY: 'Google Pay',
+    SAMSUNGPAY: 'Samsung Pay',
+    APPLEPAY: 'Apple Pay',
   }
-  return map[bookingFormStore.paymentMethod] || '信用卡'
+  const method = fetchedOrder.value?.paymentMethod
+  if (!method)
+    return '—'
+  return map[method] ?? method
 })
 
 function copyToClipboard(text: string) {
@@ -113,9 +209,50 @@ function viewOrder() {
     <!-- Main Content -->
     <main class="flex-1 overflow-y-auto px-4 py-6">
       <div class="flex flex-col gap-4">
-        <!-- 付款失敗狀態 -->
+        <!-- 撈取訂單中：資料到齊前不顯示任何金額與件數 -->
         <div
-          v-if="paymentStatus === 'failed'"
+          v-if="isOrderLoading"
+          class="flex flex-col items-center gap-2 py-10"
+        >
+          <Icon
+            name="lucide:loader-circle"
+            class="size-10 animate-spin text-primary-300"
+          />
+          <p class="text-sm text-neutral-600">
+            正在確認訂單資料…
+          </p>
+        </div>
+
+        <!-- 撈不到訂單：明說取不到，不用預設值頂替 -->
+        <div
+          v-else-if="hasOrderError"
+          class="flex flex-col items-center gap-2"
+        >
+          <div class="flex size-[100px] items-center justify-center">
+            <Icon
+              name="lucide:circle-alert"
+              class="size-full text-warning-300"
+            />
+          </div>
+          <div class="flex flex-col gap-1 text-center">
+            <h2 class="text-2xl font-bold tracking-wide text-neutral-900">
+              無法取得訂單資料
+            </h2>
+            <p
+              v-if="displayOrderNumber"
+              class="text-sm text-neutral-900"
+            >
+              訂單編號 {{ displayOrderNumber }}
+            </p>
+            <p class="text-sm text-neutral-600">
+              您的訂單可能已建立，請聯繫客服並提供訂單編號協助查詢。
+            </p>
+          </div>
+        </div>
+
+        <!-- 尚未付款 -->
+        <div
+          v-else-if="paymentResult === 'unpaid'"
           class="flex flex-col items-center gap-2"
         >
           <div class="flex size-[100px] items-center justify-center">
@@ -126,10 +263,13 @@ function viewOrder() {
           </div>
           <div class="flex flex-col gap-1 text-center">
             <h2 class="text-2xl font-bold tracking-wide text-neutral-900">
-              付款未完成
+              {{ headline }}
             </h2>
-            <p class="text-sm text-danger-300">
-              {{ paymentMessage }}
+            <p
+              v-if="failureMessage"
+              class="text-sm text-danger-300"
+            >
+              {{ failureMessage }}
             </p>
             <p class="text-sm text-neutral-600">
               訂單已建立，請重新付款或聯繫客服協助處理。
@@ -137,7 +277,29 @@ function viewOrder() {
           </div>
         </div>
 
-        <!-- 付款成功或訂單已送出狀態 -->
+        <!-- 付款確認中：藍新已收款，但後台尚未同步 -->
+        <div
+          v-else-if="paymentResult === 'confirming'"
+          class="flex flex-col items-center gap-2"
+        >
+          <div class="flex size-[100px] items-center justify-center">
+            <Icon
+              name="lucide:clock"
+              class="size-full text-warning-300"
+            />
+          </div>
+          <div class="flex flex-col gap-1 text-center">
+            <h2 class="text-2xl font-bold tracking-wide text-neutral-900">
+              {{ headline }}
+            </h2>
+            <div class="text-sm text-neutral-600">
+              <p>您的付款已完成，訂單資料同步中</p>
+              <p>請稍候至「我的訂單」查看最新狀態</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 付款成功 -->
         <div
           v-else
           class="flex flex-col items-center gap-2"
@@ -151,7 +313,7 @@ function viewOrder() {
           </div>
           <div class="flex flex-col gap-1 text-center">
             <h2 class="text-2xl font-bold tracking-wide text-neutral-900">
-              {{ paymentStatus === 'success' ? '付款成功！' : '訂單已送出！' }}
+              {{ headline }}
             </h2>
             <div class="text-sm text-neutral-600">
               <p>請稍候工作人員確認預約申請</p>
@@ -162,6 +324,7 @@ function viewOrder() {
 
         <!-- 訂單資訊 -->
         <div
+          v-if="!isOrderLoading && !hasOrderError"
           class="
             rounded-sm bg-white p-4
             shadow-[0px_4px_32px_0px_rgba(32,78,184,0.08)]
@@ -248,7 +411,7 @@ function viewOrder() {
             </div>
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">行李數量</span>
-              <span class="text-neutral-900">{{ displayLuggageCount }} 件</span>
+              <span class="text-neutral-900">{{ displayLuggageCount != null ? `${displayLuggageCount} 件` : '—' }}</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">寄件日期</span>
@@ -259,6 +422,7 @@ function viewOrder() {
 
         <!-- 結帳明細 -->
         <div
+          v-if="!isOrderLoading && !hasOrderError"
           class="
             rounded-sm bg-white p-4
             shadow-[0px_4px_32px_0px_rgba(32,78,184,0.08)]
@@ -279,15 +443,15 @@ function viewOrder() {
             </div>
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">單價</span>
-              <span class="text-neutral-900">NT$ {{ displayUnitPrice }} / 件</span>
+              <span class="text-neutral-900">{{ displayUnitPrice != null ? `NT$ ${displayUnitPrice} / 件` : '—' }}</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">數量</span>
-              <span class="text-neutral-900">{{ displayLuggageCount }} 件</span>
+              <span class="text-neutral-900">{{ displayLuggageCount != null ? `${displayLuggageCount} 件` : '—' }}</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">總計</span>
-              <span class="text-neutral-900">NT$ {{ displayTotalPrice }}</span>
+              <span class="text-neutral-900">{{ displayTotalPrice != null ? `NT$ ${displayTotalPrice.toLocaleString()}` : '—' }}</span>
             </div>
           </div>
           <div class="mb-3 h-px bg-neutral-200"></div>
@@ -299,11 +463,13 @@ function viewOrder() {
             <div class="flex items-center justify-between">
               <span class="text-neutral-600">付款狀態</span>
               <span
-                :class="paymentStatus === 'failed'
-                  ? 'text-danger-300'
-                  : 'text-neutral-900'"
+                :class="paymentResult === 'paid'
+                  ? 'text-success-300'
+                  : paymentResult === 'confirming'
+                    ? 'text-warning-300'
+                    : 'text-danger-300'"
               >
-                {{ paymentStatus === 'success' ? '已付款' : paymentStatus === 'failed' ? '未付款' : '待確認' }}
+                {{ paymentStatusLabel }}
               </span>
             </div>
           </div>
@@ -311,6 +477,7 @@ function viewOrder() {
 
         <!-- 領件人 -->
         <div
+          v-if="!isOrderLoading && !hasOrderError"
           class="
             rounded-sm bg-white p-4
             shadow-[0px_4px_32px_0px_rgba(32,78,184,0.08)]

@@ -13,6 +13,13 @@ export interface NewebpayCallbackResult {
   reason?: NewebpayCallbackFailure
   /** 藍新回傳的交易狀態，SUCCESS 以外皆視為未完成付款 */
   status?: string
+  /**
+   * 藍新回傳的結果說明原文。
+   *
+   * 失敗代碼的完整對照表只存在於藍新的規格書，我方自行翻譯必然會過時或猜錯，
+   * 因此失敗原因一律沿用這段原文，不自己編。
+   */
+  message?: string
   merchantOrderNo?: string
   amount?: number
   /** 供退款與對帳使用的交易明細（TradeNo / Auth / Card4No / PayTime 等） */
@@ -60,6 +67,8 @@ export function parseNewebpayCallback(
   // 信用卡 MPG 為 { Status, Message, Result: {...} }，其他付款方式可能直接放在頂層
   const result = (tradeInfo.Result as Record<string, unknown> | undefined) ?? tradeInfo
   const status = (Status as string | undefined) ?? (tradeInfo.Status as string | undefined) ?? ''
+  // 解密後的頂層為 { Status, Message, Result }
+  const message = (tradeInfo.Message as string | undefined) ?? ''
   const merchantOrderNo = (result.MerchantOrderNo as string)
     || (tradeInfo.MerchantOrderNo as string)
     || ''
@@ -96,6 +105,7 @@ export function parseNewebpayCallback(
   return {
     ok: true,
     status,
+    message,
     merchantOrderNo,
     amount: Number.isFinite(amount) ? amount : undefined,
     tradeData: result,

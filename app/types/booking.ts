@@ -56,6 +56,7 @@ export interface BookingOrder {
   statusTimeline?: Record<string, string> | null // 各訂單狀態的首次發生時間，供進度條標示
   legs?: OrderLegs | null // 去程／回程各自的進度；單程訂單只有 outbound
   paymentStatus?: string | null // unpaid/paid/refunded ...
+  paymentMethod?: string | null // 藍新實際回傳的付款方式（CREDIT/VACC/CVS/BARCODE）
   recipientName?: string | null // 領件人姓名（未填回退到旅客）
   recipientPhone?: string | null // 領件人電話（未填回退到旅客）
   pickupLocation: Location
