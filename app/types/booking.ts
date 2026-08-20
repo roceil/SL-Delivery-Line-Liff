@@ -26,6 +26,20 @@ export type BookingStatus
 
 export type ServicePlan = 'one_way' | 'round_trip' | 'merchant' | string
 
+/** 單一程（去程或回程）的運送進度 */
+export interface OrderLeg {
+  taskDate: string | null // 該程的預定運送日
+  status: string | null // 對應 orders_status，例如 received / in_delivery / delivered
+  isCompleted: boolean
+  completedAt: string | null
+  scheduleId: string | null // 尚未排入行程時為 null
+}
+
+export interface OrderLegs {
+  outbound: OrderLeg | null
+  inbound: OrderLeg | null
+}
+
 export interface BookingOrder {
   id: string // UUID
   orderNumber?: string // 訂單編號，例如 LQP260821001；客服與後台對帳用
@@ -39,6 +53,8 @@ export interface BookingOrder {
   luggageCount: number // 行李件數
   servicePlan?: ServicePlan | null // 服務方案：用於計算總計
   totalAmount?: number | null // 應付金額，由後台費用明細加總，是實際收費依據
+  statusTimeline?: Record<string, string> | null // 各訂單狀態的首次發生時間，供進度條標示
+  legs?: OrderLegs | null // 去程／回程各自的進度；單程訂單只有 outbound
   paymentStatus?: string | null // unpaid/paid/refunded ...
   recipientName?: string | null // 領件人姓名（未填回退到旅客）
   recipientPhone?: string | null // 領件人電話（未填回退到旅客）

@@ -43,6 +43,10 @@ async function confirmSubmit() {
       userId: lineStore.userId!,
       userName: bookingFormStore.recipientName || lineStore.displayName,
       bookingDate: bookingFormStore.bookingDate,
+      // 雙程套票才有回程；單程送出空值，Backstation 會據此決定是否排回程任務
+      returnDate: bookingFormStore.serviceType === 'round_trip'
+        ? bookingFormStore.returnDate
+        : undefined,
       pickupTime: '12:00',
       luggageCount: bookingFormStore.luggageCount,
       pickupLocation: bookingFormStore.pickupLocation,

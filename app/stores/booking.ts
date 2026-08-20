@@ -1,4 +1,4 @@
-import type { BookingOrder, BookingStatus, QRCodeData } from '~/types/booking'
+import type { BookingOrder, BookingStatus, OrderLegs, QRCodeData } from '~/types/booking'
 
 export const useBookingStore = defineStore('booking', () => {
   // State
@@ -38,6 +38,7 @@ export const useBookingStore = defineStore('booking', () => {
       platformOrderId?: string
       platformPhone?: string
       servicePlan?: string
+      returnDate?: string
     },
   ) {
     try {
@@ -55,6 +56,8 @@ export const useBookingStore = defineStore('booking', () => {
       // 準備 API 請求資料
       const apiRequest = {
         deliveryDate: orderData.bookingDate,
+        // 回程日期：Backstation 用它填 inbound 任務的 task_date，未帶會留空
+        returnDate: orderData.returnDate || undefined,
         pickupTime: orderData.pickupTime,
         luggageCount: orderData.luggageCount,
         pickupLocationId: orderData.pickupLocation.id.toString(),
@@ -238,6 +241,7 @@ export const useBookingStore = defineStore('booking', () => {
         id: string
         orderNumber?: string
         voucherId: string
+        legs?: OrderLegs | null
         userId: number
         category: string
         lineName: string
@@ -273,6 +277,7 @@ export const useBookingStore = defineStore('booking', () => {
             id: apiOrder.id,
             orderNumber: apiOrder.orderNumber,
             voucherId: apiOrder.voucherId,
+            legs: apiOrder.legs ?? null,
             userId: lineStore.userId || '',
             userName: apiOrder.lineName,
             status: apiOrder.status as BookingStatus,
@@ -337,6 +342,8 @@ export const useBookingStore = defineStore('booking', () => {
         luggageCount: number
         servicePlan?: string | null
         totalAmount?: number | null
+        statusTimeline?: Record<string, string> | null
+        legs?: OrderLegs | null
         paymentStatus?: string | null
         recipientName?: string | null
         recipientPhone?: string | null
@@ -374,6 +381,8 @@ export const useBookingStore = defineStore('booking', () => {
         luggageCount: apiOrder.luggageCount,
         servicePlan: apiOrder.servicePlan ?? null,
         totalAmount: apiOrder.totalAmount ?? null,
+        statusTimeline: apiOrder.statusTimeline ?? null,
+        legs: apiOrder.legs ?? null,
         paymentStatus: apiOrder.paymentStatus ?? null,
         recipientName: apiOrder.recipientName ?? null,
         recipientPhone: apiOrder.recipientPhone ?? null,
