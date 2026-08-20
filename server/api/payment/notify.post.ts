@@ -1,67 +1,50 @@
-import { decryptTradeInfo, hashTradeInfo } from '../../utils/newebpay'
+import { markOrderPaid, parseNewebpayCallback } from '../../utils/newebpay-notify'
 
+/**
+ * 藍新 ReturnURL —— 由買家的瀏覽器 POST 導回。
+ *
+ * 與 notify-server 共用同一套驗證與更新邏輯，差別只在這裡要把使用者導向完成頁。
+ * 兩條路徑都可能先抵達，因此更新本身必須是冪等的。
+ */
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-
   const hashKey = config.newebpayHashKey as string
   const hashIV = config.newebpayHashIV as string
 
   const body = await readBody<Record<string, string>>(event)
-  const { Status, TradeInfo, TradeSha } = body
+  const callback = parseNewebpayCallback(body, hashKey, hashIV)
 
-  console.log('[notify] received body keys=', Object.keys(body), 'Status=', Status, 'TradeInfo.len=', TradeInfo?.length, 'TradeSha.len=', TradeSha?.length)
-
-  if (!TradeInfo || !TradeSha) {
-    console.error('[notify] FAIL: 缺少 TradeInfo 或 TradeSha, body=', body)
-    return sendRedirect(event, '/life/booking-complete?Status=FAILED&reason=missing-fields', 302)
+  if (!callback.ok) {
+    return sendRedirect(event, `/life/booking-complete?Status=FAILED&reason=${callback.reason}`, 302)
   }
 
-  const expectedSha = hashTradeInfo(TradeInfo, hashKey, hashIV)
-  if (expectedSha !== TradeSha) {
-    console.error('[notify] FAIL: TradeSha 驗證失敗', { expected: expectedSha, got: TradeSha, hashKeyLen: hashKey?.length, hashIVLen: hashIV?.length })
-    return sendRedirect(event, '/life/booking-complete?Status=FAILED&reason=sha-mismatch', 302)
+  if (callback.status !== 'SUCCESS') {
+    console.error('[payment] 藍新回傳非 SUCCESS', {
+      status: callback.status,
+      merchantOrderNo: callback.merchantOrderNo,
+    })
+    const code = encodeURIComponent(callback.status || 'unknown')
+    return sendRedirect(event, `/life/booking-complete?Status=FAILED&reason=newebpay-status&code=${code}`, 302)
   }
 
-  let tradeData: Record<string, unknown>
-  try {
-    tradeData = decryptTradeInfo(TradeInfo, hashKey, hashIV)
-  }
-  catch (err) {
-    console.error('[notify] FAIL: TradeInfo 解密失敗', err)
-    return sendRedirect(event, '/life/booking-complete?Status=FAILED&reason=decrypt-error', 302)
-  }
+  const outcome = await markOrderPaid(
+    callback.merchantOrderNo!,
+    callback.amount,
+    callback.tradeData!,
+  )
 
-  // 信用卡 MPG: { Status, Message, Result: { MerchantOrderNo, ... } }
-  // 其他付款方式可能直接放在 top-level，兩者都支援
-  const result = (tradeData.Result as Record<string, unknown> | undefined) ?? tradeData
-  const merchantOrderNo = (result.MerchantOrderNo as string)
-    || (tradeData.MerchantOrderNo as string)
-    || ''
-  console.log('[notify] decrypted', { Status, merchantOrderNo, tradeData })
+  // 帶上訂單編號，讓完成頁不必依賴 sessionStorage 才能顯示訂單內容
+  // （分頁被關閉、在新分頁開啟或重新整理時 sessionStorage 都會取不到）
+  const orderNo = encodeURIComponent(callback.merchantOrderNo!)
 
-  if (!merchantOrderNo) {
-    console.error('[notify] FAIL: 無法從 tradeData 取得 MerchantOrderNo', tradeData)
-    return sendRedirect(event, '/life/booking-complete?Status=FAILED&reason=missing-order-no', 302)
+  if (outcome === 'amount-mismatch') {
+    return sendRedirect(event, `/life/booking-complete?Status=FAILED&reason=amount-mismatch&orderNo=${orderNo}`, 302)
   }
 
-  if (Status === 'SUCCESS') {
-    try {
-      // Backstation PATCH endpoint: /api/orders/{orderNumber} 支援 paymentStatus + paymentTradeData
-      // 信用卡 MPG 的 Result 包含 TradeNo / Auth / Card4No / PayTime 等供退款/對帳使用
-      const paymentTradeData = (tradeData.Result as Record<string, unknown> | undefined) ?? tradeData
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await backstationFetch(`/api/orders/${merchantOrderNo}`, {
-        method: 'PATCH' as any,
-        body: { paymentStatus: 'paid', paymentTradeData },
-      })
-      console.log('[notify] paymentStatus updated for', merchantOrderNo)
-    }
-    catch (err) {
-      console.error('[notify] FAIL: 更新 Backstation paymentStatus 失敗', err)
-    }
-    return sendRedirect(event, '/life/booking-complete?Status=SUCCESS', 302)
+  // 付款本身已成功，只是我方尚未同步；不謊稱失敗，但也不宣告已完成付款
+  if (outcome === 'sync-failed') {
+    return sendRedirect(event, `/life/booking-complete?Status=SUCCESS&reason=sync-pending&orderNo=${orderNo}`, 302)
   }
 
-  console.error('[notify] FAIL: NewebPay 回傳非 SUCCESS Status=', Status, 'tradeData=', tradeData)
-  return sendRedirect(event, `/life/booking-complete?Status=FAILED&reason=newebpay-status&code=${encodeURIComponent(Status || 'unknown')}`, 302)
+  return sendRedirect(event, `/life/booking-complete?Status=SUCCESS&orderNo=${orderNo}`, 302)
 })

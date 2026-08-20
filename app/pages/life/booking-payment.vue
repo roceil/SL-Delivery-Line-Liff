@@ -74,8 +74,8 @@ async function confirmSubmit() {
     }>('/api/payment/create', {
       method: 'POST',
       body: {
+        // 金額由 server 依後台費用明細決定，這裡不傳
         orderId: newOrder.id,
-        amount: bookingFormStore.totalPrice,
         itemDesc,
         paymentMethod: bookingFormStore.paymentMethod,
       },

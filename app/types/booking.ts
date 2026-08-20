@@ -28,7 +28,8 @@ export type ServicePlan = 'one_way' | 'round_trip' | 'merchant' | string
 
 export interface BookingOrder {
   id: string // UUID
-  voucherId?: string // 訂單憑證號碼 (nano-id)
+  orderNumber?: string // 訂單編號，例如 LQP260821001；客服與後台對帳用
+  voucherId?: string // 取件憑證碼 (nano-id)，QR Code 核銷用，非訂單編號
   userId: string // LINE userId
   userName: string // 用戶名稱（旅客姓名）
   phone?: string // 旅客電話
@@ -37,6 +38,7 @@ export interface BookingOrder {
   pickupTime: string // HH:mm
   luggageCount: number // 行李件數
   servicePlan?: ServicePlan | null // 服務方案：用於計算總計
+  totalAmount?: number | null // 應付金額，由後台費用明細加總，是實際收費依據
   paymentStatus?: string | null // unpaid/paid/refunded ...
   recipientName?: string | null // 領件人姓名（未填回退到旅客）
   recipientPhone?: string | null // 領件人電話（未填回退到旅客）
@@ -50,8 +52,8 @@ export interface BookingOrder {
 
 // 服務方案單價（NT$/件），與 booking.vue 上的方案表同步
 export const SERVICE_PLAN_PRICE: Record<string, number> = {
-  one_way: 130,
-  round_trip: 250,
+  one_way: 150,
+  round_trip: 300,
   merchant: 0, // 商家代售由商家票券抵扣，顧客不另外付費
 }
 

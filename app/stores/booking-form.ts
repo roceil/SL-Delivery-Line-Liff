@@ -30,7 +30,7 @@ export const useBookingFormStore = defineStore('booking-form', () => {
   const createdVoucherId = ref<string | null>(null)
 
   // 計算金額
-  const unitPrice = computed(() => serviceType.value === 'round_trip' ? 250 : 130)
+  const unitPrice = computed(() => serviceType.value === 'round_trip' ? 300 : 150)
   const totalPrice = computed(() => unitPrice.value * luggageCount.value)
 
   function setPlatformOrder(
