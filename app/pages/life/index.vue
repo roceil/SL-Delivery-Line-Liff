@@ -12,11 +12,25 @@ const locationsStore = useLocationsStore()
 
 const { initLiff, login } = lineStore
 const { isInitialized, isLoggedIn, user, error } = storeToRefs(lineStore)
-const { activeOrders } = storeToRefs(bookingStore)
+const { activeOrders, completedOrders } = storeToRefs(bookingStore)
 
 const isLoading = ref(true)
 
-const firstActiveOrder = computed(() => activeOrders.value[0] ?? null)
+/**
+ * 首頁「訂單狀態」要顯示的那一筆。
+ *
+ * 優先取最新的進行中訂單（orders 由後端以 created_at 由新到舊排序）。
+ * 都沒有進行中時，退而顯示最新一筆已完成的 ——
+ * 否則客人剛收到行李回到首頁，整個訂單區塊會憑空消失，像訂單不見了。
+ */
+const firstActiveOrder = computed(() =>
+  activeOrders.value[0] ?? completedOrders.value[0] ?? null,
+)
+
+/** 目前顯示的是已完成訂單（沒有進行中的訂單時） */
+const isShowingCompletedOrder = computed(() =>
+  activeOrders.value.length === 0 && completedOrders.value.length > 0,
+)
 
 // 以下三張對應表需涵蓋 orders_status 的所有狀態。
 // 缺項會落到 fallback 而顯示成「待確認」—— 行李其實已在運送中，客人卻看不出來。
@@ -234,6 +248,9 @@ onMounted(async () => {
           <p class="text-sm tracking-wide text-neutral-600">
             <template v-if="activeOrders.length > 0">
               您有 {{ activeOrders.length }} 筆訂單正在進行中！
+            </template>
+            <template v-else-if="isShowingCompletedOrder">
+              上一筆訂單已完成，感謝您的使用
             </template>
             <template v-else>
               歡迎使用行李寄送服務
