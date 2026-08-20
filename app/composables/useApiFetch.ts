@@ -37,9 +37,16 @@ function clearReloginFlag() {
  * 再把 lineUserId 放進網址或 body。
  */
 export function useApiFetch() {
+  const config = useRuntimeConfig()
   const lineStore = useLineStore()
 
   async function apiFetch<T>(url: string, options: ApiFetchOptions = {}): Promise<T> {
+    // 直接開啟深層頁面（或重新整理）時不會經過首頁，LIFF 尚未初始化就取不到 token。
+    // initLiff 內部已有「初始化過就跳過」的保護，這裡呼叫是安全的。
+    if (!lineStore.isInitialized) {
+      await lineStore.initLiff(config.public.liffId as string)
+    }
+
     const accessToken = lineStore.liffInstance?.getAccessToken()
 
     if (!accessToken) {
