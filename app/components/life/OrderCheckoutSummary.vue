@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { BookingOrder } from '~/types/booking'
-import { SERVICE_PLAN_PRICE } from '~/types/booking'
 
 const props = defineProps<{
   order: BookingOrder
@@ -29,15 +28,13 @@ const servicePlanLabel = computed(() => {
   return SERVICE_PLAN_LABEL[plan] ?? plan
 })
 
-const subtotalAmount = computed<number | null>(() => {
-  const plan = props.order.servicePlan
-  if (!plan)
-    return null
-  const unit = SERVICE_PLAN_PRICE[plan]
-  if (unit == null)
-    return null
-  return unit * (props.order.luggageCount ?? 0)
-})
+/**
+ * 小計以後台費用明細為準（totalAmount），即實際收款金額。
+ *
+ * 前端用單價 × 件數自行計算會與實收脫節 —— 後台可能調整過金額、加購或折扣，
+ * 而且前端的單價表本身就可能與 service_plans 不同步。
+ */
+const subtotalAmount = computed<number | null>(() => props.order.totalAmount ?? null)
 
 const paymentStatusLabel = computed(() => {
   const map: Record<string, string> = {
