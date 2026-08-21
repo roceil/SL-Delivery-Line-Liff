@@ -49,15 +49,16 @@ interface CreateOrderResponse {
 }
 
 export default defineEventHandler(async (event): Promise<CreateOrderResponse> => {
-  const config = useRuntimeConfig()
-  const backstationApiUrl = config.public.backstationApiUrl as string
-
   const body = await readBody<CreateOrderRequest>(event)
 
+  // 以驗證過的 lineUserId 覆蓋 client 傳入的值，避免冒用他人身分建立訂單
+  const lineUserId = await requireLineUserId(event)
+  const payload: CreateOrderRequest = { ...body, lineUserId }
+
   try {
-    const response = await $fetch<CreateOrderResponse>(`${backstationApiUrl}/api/orders`, {
+    const response = await backstationFetch<CreateOrderResponse>(`/api/orders`, {
       method: 'POST',
-      body,
+      body: payload,
     })
 
     return response
@@ -67,22 +68,9 @@ export default defineEventHandler(async (event): Promise<CreateOrderResponse> =>
     console.error('[orders.post] Backstation rejected request', {
       statusCode: fetchError.statusCode,
       backstationResponse: fetchError.data,
-      requestBody: body,
+      requestBody: payload,
     })
 
-    if (fetchError.statusCode) {
-      throw createError({
-        statusCode: fetchError.statusCode,
-        message: typeof fetchError.data === 'string'
-          ? fetchError.data
-          : (fetchError.data as { message?: string })?.message || fetchError.message || '建立訂單失敗',
-        data: fetchError.data,
-      })
-    }
-
-    throw createError({
-      statusCode: 500,
-      message: '建立訂單失敗',
-    })
+    throw toBackstationError(error, '建立訂單失敗')
   }
 })

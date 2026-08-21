@@ -94,12 +94,18 @@ export default defineNuxtConfig({
     newebpayHashKey: process.env.NEWEBPAY_HASH_KEY,
     newebpayHashIV: process.env.NEWEBPAY_HASH_IV,
     newebpayApiUrl: process.env.NEWEBPAY_API_URL,
+    // 僅由 server/api 代理時使用，不可放進 public（會連同網址一起送到瀏覽器）
+    // NUXT_PUBLIC_BACKSTATION_API_URL 為舊名稱，待部署環境改名後可移除
+    backstationApiUrl: process.env.BACKSTATION_API_URL
+      || process.env.NUXT_PUBLIC_BACKSTATION_API_URL
+      || 'http://localhost:3001',
+    // 內部服務共享金鑰，需與 Backstation 的 NUXT_INTERNAL_API_KEY 一致
+    backstationApiKey: process.env.BACKSTATION_API_KEY,
 
     // Public (會暴露到客戶端)
     public: {
       liffId: process.env.NUXT_PUBLIC_LIFF_ID,
       appUrl: process.env.NUXT_PUBLIC_APP_URL || 'http://localhost:3000',
-      backstationApiUrl: process.env.NUXT_PUBLIC_BACKSTATION_API_URL || 'http://localhost:3001',
     },
   },
 

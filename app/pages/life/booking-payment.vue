@@ -43,6 +43,10 @@ async function confirmSubmit() {
       userId: lineStore.userId!,
       userName: bookingFormStore.recipientName || lineStore.displayName,
       bookingDate: bookingFormStore.bookingDate,
+      // 雙程套票才有回程；單程送出空值，Backstation 會據此決定是否排回程任務
+      returnDate: bookingFormStore.serviceType === 'round_trip'
+        ? bookingFormStore.returnDate
+        : undefined,
       pickupTime: '12:00',
       luggageCount: bookingFormStore.luggageCount,
       pickupLocation: bookingFormStore.pickupLocation,
@@ -64,11 +68,18 @@ async function confirmSubmit() {
     const serviceLabel = bookingFormStore.serviceType === 'round_trip' ? '雙程套票' : '單程運送'
     const itemDesc = `行李寄送-${serviceLabel}x${bookingFormStore.luggageCount}件`
 
-    const paymentParams = await $fetch('/api/payment/create', {
+    const { apiFetch } = useApiFetch()
+    const paymentParams = await apiFetch<{
+      merchantId: string
+      tradeInfo: string
+      tradeSha: string
+      version: string
+      apiUrl: string
+    }>('/api/payment/create', {
       method: 'POST',
       body: {
+        // 金額由 server 依後台費用明細決定，這裡不傳
         orderId: newOrder.id,
-        amount: bookingFormStore.totalPrice,
         itemDesc,
         paymentMethod: bookingFormStore.paymentMethod,
       },
@@ -308,8 +319,7 @@ async function confirmSubmit() {
               v-for="option in paymentOptions"
               :key="option.id"
               class="
-                flex items-center gap-3 rounded-sm border p-4
-                transition-colors
+                flex items-center gap-3 rounded-sm border p-4 transition-colors
               "
               :class="[
                 option.disabled

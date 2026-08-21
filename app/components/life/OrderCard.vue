@@ -78,7 +78,7 @@ function closeVoucher() {
       </div>
       <div class="flex items-center gap-4">
         <span class="w-[60px] shrink-0 text-sm text-neutral-600">訂單編號</span>
-        <span class="text-sm text-neutral-900">{{ order.voucherId || order.id.substring(0, 8) }}</span>
+        <span class="text-sm text-neutral-900">{{ order.orderNumber || order.id }}</span>
       </div>
       <div class="flex items-center gap-4">
         <span class="w-[60px] shrink-0 text-sm text-neutral-600">使用日期</span>
@@ -124,14 +124,18 @@ function closeVoucher() {
     >
       <div
         v-if="showVoucherModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6"
+        class="
+          fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6
+        "
         role="dialog"
         aria-modal="true"
         @click.self="closeVoucher"
       >
         <div class="flex w-full max-w-[320px] flex-col items-center gap-6">
           <!-- 上方提示 -->
-          <p class="text-center text-base leading-relaxed font-medium text-white">
+          <p
+            class="text-center text-base leading-relaxed font-medium text-white"
+          >
             使用 Klook/KKday/Trip 購買的旅客<br>請改用該 App 內的電子憑證
           </p>
 
@@ -176,7 +180,9 @@ function closeVoucher() {
             <!-- 訂單資訊 -->
             <div class="flex flex-col gap-2">
               <div
-                class="flex items-center gap-2 text-base font-bold text-neutral-900"
+                class="
+                  flex items-center gap-2 text-base font-bold text-neutral-900
+                "
               >
                 <span class="truncate">{{ order.pickupLocation.name }}</span>
                 <Icon
@@ -186,7 +192,7 @@ function closeVoucher() {
                 <span class="truncate">{{ order.deliveryLocation.name }}</span>
               </div>
               <div class="flex items-center gap-2 text-sm">
-                <span class="shrink-0 text-neutral-600">訂單編號</span>
+                <span class="shrink-0 text-neutral-600">取件憑證碼</span>
                 <span class="text-neutral-900">
                   {{ order.voucherId || order.id }}
                 </span>

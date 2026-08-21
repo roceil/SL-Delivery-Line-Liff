@@ -10,8 +10,6 @@ interface UserResponse {
 }
 
 export default defineEventHandler(async (event): Promise<UserResponse> => {
-  const config = useRuntimeConfig()
-  const backstationApiUrl = config.public.backstationApiUrl as string
   const lineUserId = getRouterParam(event, 'lineUserId')
 
   if (!lineUserId) {
@@ -21,9 +19,12 @@ export default defineEventHandler(async (event): Promise<UserResponse> => {
     })
   }
 
+  // 僅允許查詢自己的資料
+  await requireOwnLineUserId(event, lineUserId)
+
   try {
     // 代理請求到 Backstation API
-    const response = await $fetch<UserResponse>(`${backstationApiUrl}/api/users/${lineUserId}`, {
+    const response = await backstationFetch<UserResponse>(`/api/users/${lineUserId}`, {
       method: 'GET',
     })
 
@@ -32,14 +33,6 @@ export default defineEventHandler(async (event): Promise<UserResponse> => {
   catch (error) {
     console.error('Failed to fetch user from Backstation:', error)
 
-    // 如果是 Backstation 回傳的錯誤，保留狀態碼和訊息
-    if (error && typeof error === 'object' && 'statusCode' in error) {
-      throw error
-    }
-
-    throw createError({
-      statusCode: 500,
-      message: '無法取得使用者資料',
-    })
+    throw toBackstationError(error, '無法取得使用者資料')
   }
 })

@@ -31,6 +31,24 @@ export function hashTradeInfo(
 }
 
 /**
+ * 依藍新規則計算 CheckCode，用來驗證回傳內容未遭竄改。
+ *
+ * 組成順序固定為 HashIV → Amt → MerchantID → MerchantOrderNo → TradeNo → HashKey，
+ * 與 TradeSha 是兩個不同層次的檢查：TradeSha 驗整包 TradeInfo 的來源，
+ * CheckCode 驗解密後幾個關鍵欄位的內容。
+ */
+export function buildCheckCode(
+  params: { Amt: string | number, MerchantID: string, MerchantOrderNo: string, TradeNo: string },
+  hashKey: string,
+  hashIV: string,
+): string {
+  const raw = `HashIV=${hashIV}&Amt=${params.Amt}&MerchantID=${params.MerchantID}`
+    + `&MerchantOrderNo=${params.MerchantOrderNo}&TradeNo=${params.TradeNo}&HashKey=${hashKey}`
+
+  return createHash('sha256').update(raw).digest('hex').toUpperCase()
+}
+
+/**
  * 解密藍新回傳的 TradeInfo（hex → 解密後嘗試 JSON parse，否則回傳 query string 物件）
  *
  * 注意：autoPadding 設為 false 並手動 strip 尾部控制字元。
@@ -48,7 +66,7 @@ export function decryptTradeInfo(
 
   // 手動移除尾部 padding（控制字元 \x00-\x1f）
   // eslint-disable-next-line no-control-regex
-  decrypted = decrypted.replace(/[\x00-\x1f]+$/g, '')
+  decrypted = decrypted.replace(/[\x00-\x1F]+$/g, '')
 
   try {
     return JSON.parse(decrypted) as Record<string, unknown>

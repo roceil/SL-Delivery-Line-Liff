@@ -14,6 +14,8 @@ export const useProfileStore = defineStore('profile', () => {
   // Actions
   async function initProfile() {
     const lineStore = useLineStore()
+    // 直接開啟子頁面時 LIFF 尚未初始化，userId 會是 null 而靜默略過載入
+    await lineStore.ensureInitialized()
 
     if (!lineStore.userId)
       return
@@ -22,8 +24,10 @@ export const useProfileStore = defineStore('profile', () => {
       isLoading.value = true
       error.value = null
 
+      const { apiFetch } = useApiFetch()
+
       // 從 API 載入使用者資料
-      const response = await $fetch<{
+      const response = await apiFetch<{
         userId: number
         lineUserId: string
         displayName: string
@@ -71,6 +75,8 @@ export const useProfileStore = defineStore('profile', () => {
         throw new Error('個人資料尚未初始化')
 
       const lineStore = useLineStore()
+      await lineStore.ensureInitialized()
+
       if (!lineStore.userId)
         throw new Error('LINE 使用者 ID 不存在')
 
@@ -84,8 +90,10 @@ export const useProfileStore = defineStore('profile', () => {
       if (updates.email && !validateEmail(updates.email))
         throw new Error('信箱格式不正確')
 
+      const { apiFetch } = useApiFetch()
+
       // 呼叫 API 更新使用者資料
-      const response = await $fetch<{
+      const response = await apiFetch<{
         userId: number
         lineUserId: string
         displayName: string

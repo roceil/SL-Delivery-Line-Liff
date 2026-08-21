@@ -12,23 +12,38 @@ export interface Location {
 // 對齊 backstation orders_status 表（id 1..9），加上前端原本的 in_transit 別名相容
 // pending=待確認 / confirmed=已確認 / assigned=已分派 / in_delivery=配送中 / received=已收件
 // delivered=已送達 / cancelled=已取消 / completed=已完成 / overdue=逾期
-export type BookingStatus =
-  | 'pending'
-  | 'confirmed'
-  | 'assigned'
-  | 'in_delivery'
-  | 'received'
-  | 'in_transit'
-  | 'delivered'
-  | 'completed'
-  | 'cancelled'
-  | 'overdue'
+export type BookingStatus
+  = | 'pending'
+    | 'confirmed'
+    | 'assigned'
+    | 'in_delivery'
+    | 'received'
+    | 'in_transit'
+    | 'delivered'
+    | 'completed'
+    | 'cancelled'
+    | 'overdue'
 
 export type ServicePlan = 'one_way' | 'round_trip' | 'merchant' | string
 
+/** 單一程（去程或回程）的運送進度 */
+export interface OrderLeg {
+  taskDate: string | null // 該程的預定運送日
+  status: string | null // 對應 orders_status，例如 received / in_delivery / delivered
+  isCompleted: boolean
+  completedAt: string | null
+  scheduleId: string | null // 尚未排入行程時為 null
+}
+
+export interface OrderLegs {
+  outbound: OrderLeg | null
+  inbound: OrderLeg | null
+}
+
 export interface BookingOrder {
   id: string // UUID
-  voucherId?: string // 訂單憑證號碼 (nano-id)
+  orderNumber?: string // 訂單編號，例如 LQP260821001；客服與後台對帳用
+  voucherId?: string // 取件憑證碼 (nano-id)，QR Code 核銷用，非訂單編號
   userId: string // LINE userId
   userName: string // 用戶名稱（旅客姓名）
   phone?: string // 旅客電話
@@ -37,7 +52,11 @@ export interface BookingOrder {
   pickupTime: string // HH:mm
   luggageCount: number // 行李件數
   servicePlan?: ServicePlan | null // 服務方案：用於計算總計
+  totalAmount?: number | null // 應付金額，由後台費用明細加總，是實際收費依據
+  statusTimeline?: Record<string, string> | null // 各訂單狀態的首次發生時間，供進度條標示
+  legs?: OrderLegs | null // 去程／回程各自的進度；單程訂單只有 outbound
   paymentStatus?: string | null // unpaid/paid/refunded ...
+  paymentMethod?: string | null // 藍新實際回傳的付款方式（CREDIT/VACC/CVS/BARCODE）
   recipientName?: string | null // 領件人姓名（未填回退到旅客）
   recipientPhone?: string | null // 領件人電話（未填回退到旅客）
   pickupLocation: Location
@@ -50,8 +69,8 @@ export interface BookingOrder {
 
 // 服務方案單價（NT$/件），與 booking.vue 上的方案表同步
 export const SERVICE_PLAN_PRICE: Record<string, number> = {
-  one_way: 130,
-  round_trip: 250,
+  one_way: 150,
+  round_trip: 300,
   merchant: 0, // 商家代售由商家票券抵扣，顧客不另外付費
 }
 

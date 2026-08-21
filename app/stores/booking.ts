@@ -1,4 +1,4 @@
-import type { BookingOrder, BookingStatus, QRCodeData } from '~/types/booking'
+import type { BookingOrder, BookingStatus, OrderLegs, QRCodeData } from '~/types/booking'
 
 export const useBookingStore = defineStore('booking', () => {
   // State
@@ -38,6 +38,7 @@ export const useBookingStore = defineStore('booking', () => {
       platformOrderId?: string
       platformPhone?: string
       servicePlan?: string
+      returnDate?: string
     },
   ) {
     try {
@@ -55,6 +56,8 @@ export const useBookingStore = defineStore('booking', () => {
       // 準備 API 請求資料
       const apiRequest = {
         deliveryDate: orderData.bookingDate,
+        // 回程日期：Backstation 用它填 inbound 任務的 task_date，未帶會留空
+        returnDate: orderData.returnDate || undefined,
         pickupTime: orderData.pickupTime,
         luggageCount: orderData.luggageCount,
         pickupLocationId: orderData.pickupLocation.id.toString(),
@@ -158,9 +161,10 @@ export const useBookingStore = defineStore('booking', () => {
       isLoading.value = true
       error.value = null
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await $fetch(`/api/orders/${orderId}`, {
-        method: 'PATCH' as any,
+      const { apiFetch } = useApiFetch()
+
+      await apiFetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
         body: { status: 'cancelled' },
       })
 
@@ -200,8 +204,10 @@ export const useBookingStore = defineStore('booking', () => {
       if (qrData.type !== 'booking_order')
         throw new Error('QR Code 格式不正確')
 
+      const { apiFetch } = useApiFetch()
+
       // 使用 voucherId 查詢訂單 ID
-      const response = await $fetch<{ id: string }>(`/api/orders/by-voucher/${qrData.voucherId}`)
+      const response = await apiFetch<{ id: string }>(`/api/orders/by-voucher/${qrData.voucherId}`)
       const order = getOrderById.value(response.id)
 
       if (!order)
@@ -225,16 +231,17 @@ export const useBookingStore = defineStore('booking', () => {
       error.value = null
 
       const lineStore = useLineStore()
+      const { apiFetch } = useApiFetch()
 
-      if (!lineStore.userId) {
-        orders.value = []
-        return
-      }
-
+      // 不再以 lineStore.userId 作為前置守衛：直接開啟本頁（未經首頁）時
+      // LIFF 尚未初始化，userId 為 null 會導致連 API 都不發就回傳空清單。
+      // 使用者身分由後端從 access token 取得，前端不需要先知道 userId。
       // 從 API 載入訂單列表
-      const response = await $fetch<{
+      const response = await apiFetch<{
         id: string
+        orderNumber?: string
         voucherId: string
+        legs?: OrderLegs | null
         userId: number
         category: string
         lineName: string
@@ -259,7 +266,7 @@ export const useBookingStore = defineStore('booking', () => {
         notes: string
         createdAt: string
         updatedAt: string
-      }[]>(`/api/orders?lineUserId=${lineStore.userId}`)
+      }[]>('/api/orders')
 
       const { generateOrderQRCode } = useQRCode()
 
@@ -268,7 +275,9 @@ export const useBookingStore = defineStore('booking', () => {
         response.map(async (apiOrder) => {
           const order: BookingOrder = {
             id: apiOrder.id,
+            orderNumber: apiOrder.orderNumber,
             voucherId: apiOrder.voucherId,
+            legs: apiOrder.legs ?? null,
             userId: lineStore.userId || '',
             userName: apiOrder.lineName,
             status: apiOrder.status as BookingStatus,
@@ -318,10 +327,12 @@ export const useBookingStore = defineStore('booking', () => {
       error.value = null
 
       const lineStore = useLineStore()
+      const { apiFetch } = useApiFetch()
 
       // 從 API 載入單一訂單（API 路徑只需 orderId，不需 userId）
-      const apiOrder = await $fetch<{
+      const apiOrder = await apiFetch<{
         id: string
+        orderNumber?: string
         voucherId: string
         category: string
         lineName: string
@@ -330,7 +341,11 @@ export const useBookingStore = defineStore('booking', () => {
         pickupTime: string
         luggageCount: number
         servicePlan?: string | null
+        totalAmount?: number | null
+        statusTimeline?: Record<string, string> | null
+        legs?: OrderLegs | null
         paymentStatus?: string | null
+        paymentTradeData?: { PaymentType?: string } | null
         recipientName?: string | null
         recipientPhone?: string | null
         status: string
@@ -356,6 +371,7 @@ export const useBookingStore = defineStore('booking', () => {
       // 轉換為本地格式
       const order: BookingOrder = {
         id: apiOrder.id,
+        orderNumber: apiOrder.orderNumber,
         voucherId: apiOrder.voucherId,
         userId: lineStore.userId || '',
         userName: apiOrder.lineName,
@@ -365,7 +381,12 @@ export const useBookingStore = defineStore('booking', () => {
         pickupTime: apiOrder.pickupTime,
         luggageCount: apiOrder.luggageCount,
         servicePlan: apiOrder.servicePlan ?? null,
+        totalAmount: apiOrder.totalAmount ?? null,
+        statusTimeline: apiOrder.statusTimeline ?? null,
+        legs: apiOrder.legs ?? null,
         paymentStatus: apiOrder.paymentStatus ?? null,
+        // 付款方式取自藍新回傳的交易資料，不用前端表單的暫存值
+        paymentMethod: apiOrder.paymentTradeData?.PaymentType ?? null,
         recipientName: apiOrder.recipientName ?? null,
         recipientPhone: apiOrder.recipientPhone ?? null,
         pickupLocation: {

@@ -37,6 +37,21 @@ export const useLineStore = defineStore('line', () => {
     }
   }
 
+  /**
+   * 確保 LIFF 已初始化。
+   *
+   * LIFF 僅在首頁與 booking-flow layout 中初始化，直接開啟子頁面或重新整理
+   * 時不會經過那裡；任何需要 token 或 userId 的動作都應先呼叫這個方法，
+   * 否則會拿到 null 而靜默失敗。
+   */
+  async function ensureInitialized() {
+    if (isInitialized.value)
+      return
+
+    const config = useRuntimeConfig()
+    await initLiff(config.public.liffId as string)
+  }
+
   async function fetchUserProfile() {
     if (!liffInstance.value || !isLoggedIn.value)
       return
@@ -106,6 +121,7 @@ export const useLineStore = defineStore('line', () => {
 
     // Actions
     initLiff,
+    ensureInitialized,
     login,
     logout,
     closeLiff,

@@ -11,12 +11,9 @@ interface DeliveryPoint {
 }
 
 export default defineEventHandler(async (_event): Promise<DeliveryPoint[]> => {
-  const config = useRuntimeConfig()
-  const backstationApiUrl = config.public.backstationApiUrl as string
-
   try {
     // 代理請求到 Backstation API
-    const response = await $fetch<DeliveryPoint[]>(`${backstationApiUrl}/api/delivery-points`, {
+    const response = await backstationFetch<DeliveryPoint[]>(`/api/delivery-points`, {
       method: 'GET',
     })
 

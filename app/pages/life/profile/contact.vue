@@ -19,7 +19,7 @@ definePageMeta({
           src="/payments/contact_us.svg"
           alt="Contact Support"
           class="h-[106px] w-[120px]"
-        />
+        >
         <h1
           class="
             text-xl leading-[1.2] font-bold tracking-[1px] text-neutral-900

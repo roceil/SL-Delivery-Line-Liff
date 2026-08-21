@@ -1,17 +1,18 @@
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
-  const backstationApiUrl = config.public.backstationApiUrl as string
   const orderId = getRouterParam(event, 'id')
 
   if (!orderId) {
     throw createError({ statusCode: 400, message: '缺少訂單 ID' })
   }
 
+  // 至少要求登入。訂單擁有者的比對需由 Backstation 支援（LIFF 端無訂單歸屬資料）
+  await requireLineUserId(event)
+
   const body = await readBody(event)
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return await $fetch(`${backstationApiUrl}/api/orders/${orderId}`, {
+    return await backstationFetch(`/api/orders/${orderId}`, {
       method: 'PATCH' as any,
       body,
     })
@@ -25,16 +26,6 @@ export default defineEventHandler(async (event) => {
       requestBody: body,
     })
 
-    if (fetchError.statusCode) {
-      throw createError({
-        statusCode: fetchError.statusCode,
-        message: typeof fetchError.data === 'string'
-          ? fetchError.data
-          : (fetchError.data as { message?: string })?.message || fetchError.message || '更新訂單失敗',
-        data: fetchError.data,
-      })
-    }
-
-    throw createError({ statusCode: 500, message: '更新訂單失敗' })
+    throw toBackstationError(error, '更新訂單失敗')
   }
 })

@@ -2,10 +2,13 @@ import { encryptTradeInfo, hashTradeInfo } from '../../utils/newebpay'
 
 interface CreatePaymentRequest {
   orderId: string
-  amount: number
   itemDesc: string
   email?: string
   paymentMethod: 'line_pay' | 'credit_card' | 'apple_pay'
+}
+
+interface OrderAmountResponse {
+  totalAmount?: number | null
 }
 
 interface CreatePaymentResponse {
@@ -20,7 +23,20 @@ export default defineEventHandler(async (event): Promise<CreatePaymentResponse> 
   const config = useRuntimeConfig()
   const body = await readBody<CreatePaymentRequest>(event)
 
-  const { orderId, amount, itemDesc, email, paymentMethod } = body
+  // 要求登入，避免任意對他人訂單產生付款單
+  await requireLineUserId(event)
+
+  const { orderId, itemDesc, email, paymentMethod } = body
+
+  // 付款金額一律由後台的費用明細決定，不接受 client 傳入的金額
+  // （否則使用者可在瀏覽器把金額改成 1 元付掉整筆訂單，且藍新仍會正常簽章）
+  const order = await backstationFetch<OrderAmountResponse>(`/api/orders/${orderId}`)
+  const amount = order.totalAmount
+
+  if (amount == null || amount <= 0) {
+    console.error('[payment] 訂單金額無效，無法產生付款單', { orderId, amount })
+    throw createError({ statusCode: 400, message: '此訂單目前無可付款金額，請聯繫客服' })
+  }
 
   const merchantId = config.newebpayMerchantId as string
   const hashKey = config.newebpayHashKey as string
@@ -60,7 +76,10 @@ export default defineEventHandler(async (event): Promise<CreatePaymentResponse> 
     MerchantOrderNo: merchantOrderNo,
     Amt: amount,
     ItemDesc: itemDesc,
+    // ReturnURL 由買家的瀏覽器導回，客人若在導回前關閉 LINE 就收不到結果；
+    // NotifyURL 由藍新伺服器直接背景通知，不受客人端行為影響，兩者都會送達
     ReturnURL: `${origin}/api/payment/notify`,
+    NotifyURL: `${origin}/api/payment/notify-server`,
     ClientBackURL: `${origin}/life/booking-complete`,
     ...paymentParams,
   }

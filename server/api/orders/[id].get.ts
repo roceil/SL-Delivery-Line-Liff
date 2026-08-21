@@ -25,8 +25,6 @@ interface OrderDetailResponse {
 }
 
 export default defineEventHandler(async (event): Promise<OrderDetailResponse> => {
-  const config = useRuntimeConfig()
-  const backstationApiUrl = config.public.backstationApiUrl as string
   const orderId = getRouterParam(event, 'id')
 
   if (!orderId) {
@@ -36,9 +34,12 @@ export default defineEventHandler(async (event): Promise<OrderDetailResponse> =>
     })
   }
 
+  // 至少要求登入。訂單擁有者的比對需由 Backstation 支援（LIFF 端無訂單歸屬資料）
+  await requireLineUserId(event)
+
   try {
     // 代理請求到 Backstation API
-    const response = await $fetch<OrderDetailResponse>(`${backstationApiUrl}/api/orders/${orderId}`, {
+    const response = await backstationFetch<OrderDetailResponse>(`/api/orders/${orderId}`, {
       method: 'GET',
     })
 
@@ -47,14 +48,6 @@ export default defineEventHandler(async (event): Promise<OrderDetailResponse> =>
   catch (error) {
     console.error('Failed to fetch order from Backstation:', error)
 
-    // 如果是 Backstation 回傳的錯誤，保留狀態碼和訊息
-    if (error && typeof error === 'object' && 'statusCode' in error) {
-      throw error
-    }
-
-    throw createError({
-      statusCode: 500,
-      message: '無法取得訂單詳情',
-    })
+    throw toBackstationError(error, '無法取得訂單詳情')
   }
 })

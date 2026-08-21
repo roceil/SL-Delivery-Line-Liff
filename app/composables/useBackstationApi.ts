@@ -1,4 +1,27 @@
+/**
+ * 將後端回傳的錯誤轉為可顯示的訊息。
+ *
+ * server/api 已刻意保留 Backstation 的 statusCode 與 message（例如「此時段
+ * 已無可用名額」），此處優先採用；取不到時才退回泛用文字，避免把後端說明
+ * 吞掉、讓使用者與客服都看不出真正原因。
+ */
+function toDisplayError(error: unknown, fallback: string): Error {
+  const fetchError = error as {
+    data?: { message?: string, statusMessage?: string } | string
+    message?: string
+  }
+
+  const data = fetchError.data
+  const backendMessage = typeof data === 'string'
+    ? data
+    : (data?.message ?? data?.statusMessage)
+
+  return new Error(backendMessage?.trim() || fallback, { cause: error })
+}
+
 export function useBackstationApi() {
+  const { apiFetch } = useApiFetch()
+
   interface DeliveryPoint {
     id: number
     name: string
@@ -35,6 +58,8 @@ export function useBackstationApi() {
     category: string
     lineName: string
     phone: string
+    recipientName: string
+    recipientPhone: string
     deliveryDate: string
     pickupTime: string
     luggageCount: number
@@ -64,14 +89,14 @@ export function useBackstationApi() {
     }
     catch (error) {
       console.error('Failed to fetch delivery points:', error)
-      throw new Error('無法載入配送地點')
+      throw toDisplayError(error, '無法載入配送地點')
     }
   }
 
   async function createOrder(orderData: CreateOrderRequest): Promise<CreateOrderResponse> {
     try {
       // 呼叫 LIFF 自己的 server API（無 CORS 問題）
-      const response = await $fetch<CreateOrderResponse>('/api/orders', {
+      const response = await apiFetch<CreateOrderResponse>('/api/orders', {
         method: 'POST',
         body: orderData,
       })
@@ -79,7 +104,7 @@ export function useBackstationApi() {
     }
     catch (error) {
       console.error('Failed to create order:', error)
-      throw new Error('建立訂單失敗')
+      throw toDisplayError(error, '建立訂單失敗')
     }
   }
 
@@ -132,24 +157,24 @@ export function useBackstationApi() {
   async function queryTripOrder(voucherCode: string): Promise<TripOrderResponse> {
     try {
       // 透過 LIFF server API 代理到 Backstation (使用憑證號碼查詢)
-      const response = await $fetch<TripOrderResponse>(`/api/platform-orders/trip/${voucherCode}`)
+      const response = await apiFetch<TripOrderResponse>(`/api/platform-orders/trip/${voucherCode}`)
       return response
     }
     catch (error) {
       console.error('Failed to query Trip order:', error)
-      throw new Error('查詢 Trip 訂單失敗')
+      throw toDisplayError(error, '查詢 Trip 訂單失敗')
     }
   }
 
   async function queryKlookOrder(resellerReference: string): Promise<KlookOrderResponse> {
     try {
       // 透過 LIFF server API 代理到 Backstation
-      const response = await $fetch<KlookOrderResponse>(`/api/platform-orders/klook/${resellerReference}`)
+      const response = await apiFetch<KlookOrderResponse>(`/api/platform-orders/klook/${resellerReference}`)
       return response
     }
     catch (error) {
       console.error('Failed to query Klook order:', error)
-      throw new Error('查詢 Klook 訂單失敗')
+      throw toDisplayError(error, '查詢 Klook 訂單失敗')
     }
   }
 
