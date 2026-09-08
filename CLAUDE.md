@@ -116,5 +116,24 @@ orders (platform_type=3) → net_orders → trip_orders / klook_orders
 藍新 MPG。`payment/create` 產生加密參數後由前端以隱藏表單送出，
 `payment/notify` 接收回調並驗簽。
 
-**已知問題：目前只設了 `ReturnURL`（瀏覽器導回），沒有 `NotifyURL`
-（伺服器對伺服器）。** 旅客付款後若在導回前關閉 LINE，訂單會停在未付款。
+`ReturnURL`（瀏覽器導回）與 `NotifyURL`（藍新伺服器背景通知）都已設定，
+兩條路徑共用 `newebpay-notify.ts` 的驗證與更新邏輯，更新本身為冪等。
+
+**已知問題：三次重試都寫不進 Backstation 時只會留下 `[需人工處理]` log，
+LIFF 端沒有可落地的儲存空間，永久失敗需人工對帳補單。**
+
+## 測試期間的存取限制
+
+`server/middleware/access-guard.ts` 提供 IP 白名單，供甲方測試階段限制存取。
+
+以環境變數 `ACCESS_ALLOWED_IPS`（逗號分隔）啟用，留空即為停用、全站正常開放，
+因此上線時只要清掉變數，不需要改程式碼。非白名單來源一律收到「系統開發中」
+頁面（HTTP 200，避免 Zeabur 健康檢查判定服務異常而重啟）。
+
+例外路徑（`payment/notify-server`、`payment/notify`、`line/webhook`）不受限制，
+這些是藍新與 LINE 的伺服器主動打進來的，擋掉會導致付款不入帳、官方帳號失效。
+
+Zeabur 為反向代理，真實來源在 `x-forwarded-for`，而代理層數不固定，
+因此比對整條 IP 鏈而非只取第一個。**這是避免不相干的人誤入未完成的網站，
+不是資安機制** —— `x-forwarded-for` 可由來源端偽造，真正的權限控管仍由
+`requireLineUserId` 負責。
