@@ -136,34 +136,13 @@ async function handleMessageEvent(client: Client, event: MessageEvent) {
         ],
       },
     })
-    return
   }
 
-  // 預設回覆
-  await client.replyMessage(event.replyToken, {
-    type: 'text',
-    text: `您說：${userMessage}\n\n輸入「選單」查看可用功能，或點擊下方按鈕開啟應用。`,
-    quickReply: {
-      items: [
-        {
-          type: 'action',
-          action: {
-            type: 'uri',
-            label: '開啟應用',
-            uri: liffUrl,
-          },
-        },
-        {
-          type: 'action',
-          action: {
-            type: 'message',
-            label: '選單',
-            text: '選單',
-          },
-        },
-      ],
-    },
-  })
+  // 沒有命中任何指令時不回覆。
+  //
+  // 原本這裡會把客人的訊息原句唸回來（「您說：⋯⋯」），客人隨口打一句話就被
+  // 鸚鵡學舌，讀起來像故障。官方帳號在看不懂客人要什麼的時候保持安靜，
+  // 比硬回一句沒用的話得體；需要引導時客人仍可用圖文選單或輸入「選單」。
 }
 
 async function handleFollowEvent(client: Client, event: FollowEvent) {
