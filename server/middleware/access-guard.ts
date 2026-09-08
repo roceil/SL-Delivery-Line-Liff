@@ -107,6 +107,12 @@ export default defineEventHandler((event) => {
     .map(ip => normalizeIp(ip))
     .filter(Boolean)
 
+  // 診斷用標頭，供部署後確認狀態，不透露白名單內容：
+  //   沒有這個標頭 = middleware 根本沒跑（未部署或建置未包含）
+  //   off          = 有跑，但讀不到 ACCESS_ALLOWED_IPS（環境變數沒設對）
+  //   on           = 有跑且白名單生效
+  setResponseHeader(event, 'x-access-guard', allowList.length === 0 ? 'off' : 'on')
+
   // 沒設定白名單就是沒啟用，維持正常開放
   if (allowList.length === 0)
     return
