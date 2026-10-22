@@ -1,0 +1,74 @@
+name: 部署到 Fly
+
+# push 到 dev 部署測試機，push 到 main 部署正式機。
+# 部署前一定先過〖檢查〗：程式碼風格或型別沒過，就不會部署。
+# 環境變數不在這裡：機器開機時才用 Doppler 機器帳號去拿（見 start.sh）
+
+# 〖觸發〗
+on:
+  push:
+    branches: [dev, main]
+
+# 〖權限〗只能讀程式碼，不能改 repo
+permissions:
+  contents: read
+
+jobs:
+  # 〖檢查〗本機的 pre-commit 可以被跳過（git commit --no-verify），
+  # 而且只看暫存的檔案；這裡是部署前真正的最後一關
+  check:
+    name: 〖檢查〗程式碼風格與型別
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 〖準備〗下載程式碼
+        uses: actions/checkout@v7
+
+      - name: 〖準備〗安裝 Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # 用 corepack 照 package.json 的 packageManager 裝同一版 pnpm，跟本機和 Dockerfile 一致。
+      # 安裝完會自動跑 nuxt prepare，產生型別檢查要用的型別檔
+      - name: 〖準備〗安裝套件
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      - name: 〖檢查〗程式碼風格
+        run: pnpm lint
+
+      - name: 〖檢查〗型別
+        run: pnpm typecheck
+
+  # 〖部署〗
+  deploy:
+    name: 〖部署〗Fly
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # 同一個分支一次只部署一個，後來的排隊等，不中斷正在跑的那個
+    concurrency:
+      group: fly-deploy-${{ github.ref_name }}
+      cancel-in-progress: false
+    steps:
+      - name: 〖準備〗下載程式碼
+        uses: actions/checkout@v7
+
+      # 第三方 action 而且碰得到部署 token，鎖在固定的 commit，不跟著 master 變
+      - name: 〖準備〗安裝 flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@fc53c09e1bc3be6f54706524e3b82c4f462f77be # 1.5
+
+      # 兩邊用各自的 token：每把只能部署自己的 app，測試機的外洩動不到正式機
+      - name: 〖部署〗測試機 sl-delivery-line-liff-dev
+        if: github.ref_name == 'dev'
+        run: flyctl deploy --remote-only --ha=false -c fly.dev.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_DEV }}
+
+      - name: 〖部署〗正式機 sl-delivery-line-liff-prod
+        if: github.ref_name == 'main'
+        run: flyctl deploy --remote-only --ha=false -c fly.prod.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_PROD }}
