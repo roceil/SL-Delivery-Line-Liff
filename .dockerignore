@@ -1,0 +1,14 @@
+# 用白名單：只放建置需要的東西進映像檔。
+# 根目錄有 .env、.env.prod 等機密檔，用黑名單的話，之後多一個機密檔忘了加就會一起被打包上去。
+# 新增根目錄的資料夾或設定檔、而且建置會用到時，要記得加進來（少列不會報錯，只會建出缺功能的網站）
+*
+!app
+!public
+!server
+!nuxt.config.ts
+!tsconfig.json
+!eslint.config.js
+!package.json
+!pnpm-lock.yaml
+!.npmrc
+!start.sh

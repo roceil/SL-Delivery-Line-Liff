@@ -1,0 +1,27 @@
+# 正式機（測試機是 fly.dev.toml）。部署：fly deploy -c fly.prod.toml，其他手動操作加 -a sl-delivery-line-liff-prod
+app = "sl-delivery-line-liff-prod"
+primary_region = "nrt"
+
+# 不是機密，只是告訴 start.sh 用 Doppler 的哪個機器帳號、去哪個專案和環境拿變數
+[env]
+  DOPPLER_IDENTITY_ID = "73736406-0eb9-4099-92e9-83ce3cf27a22" # fly-sl-delivery-line-liff-prod
+  DOPPLER_PROJECT = "sl-delivery-line-liff"
+  DOPPLER_CONFIG = "prd"
+  # Fly 的機器預設是 UTC。伺服器先畫的頁面如果跟時間有關（例如「早安／午安」），
+  # 不設的話客人會先看到錯的時段，等瀏覽器載入後才被更正
+  TZ = "Asia/Taipei"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  # 永遠留一台開著：LINE 的 Webhook、藍新的付款通知隨時會打進來，冷開機要先登入 Doppler，可能來不及回應
+  min_machines_running = 1
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

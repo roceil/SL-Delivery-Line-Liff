@@ -86,25 +86,30 @@ export default defineNuxtConfig({
     },
   },
 
+  // 這裡的 process.env 只在建置時讀一次。Fly 建置時沒有機密（開機才從 Doppler 拿），
+  // 所以每個值都要有預設的空字串：Nuxt 開機時才會用 NUXT_ 開頭的同名變數蓋掉
+  // （例如 NUXT_LINE_CHANNEL_ACCESS_TOKEN → lineChannelAccessToken）。
+  // 值是 undefined 的話這個設定會整個消失，開機時就沒辦法蓋。
+  // 右邊的舊名稱（LINE_CHANNEL_ACCESS_TOKEN 等）是 Zeabur 建置時用的，Zeabur 收掉後可以拿掉
   runtimeConfig: {
     // Server-only (不會暴露到客戶端)
-    lineChannelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-    lineChannelSecret: process.env.LINE_CHANNEL_SECRET,
-    newebpayMerchantId: process.env.NEWEBPAY_MERCHANT_ID,
-    newebpayHashKey: process.env.NEWEBPAY_HASH_KEY,
-    newebpayHashIV: process.env.NEWEBPAY_HASH_IV,
-    newebpayApiUrl: process.env.NEWEBPAY_API_URL,
+    lineChannelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || '',
+    lineChannelSecret: process.env.LINE_CHANNEL_SECRET || '',
+    newebpayMerchantId: process.env.NEWEBPAY_MERCHANT_ID || '',
+    newebpayHashKey: process.env.NEWEBPAY_HASH_KEY || '',
+    newebpayHashIV: process.env.NEWEBPAY_HASH_IV || '',
+    newebpayApiUrl: process.env.NEWEBPAY_API_URL || '',
     // 僅由 server/api 代理時使用，不可放進 public（會連同網址一起送到瀏覽器）
     // NUXT_PUBLIC_BACKSTATION_API_URL 為舊名稱，待部署環境改名後可移除
     backstationApiUrl: process.env.BACKSTATION_API_URL
       || process.env.NUXT_PUBLIC_BACKSTATION_API_URL
       || 'http://localhost:3001',
     // 內部服務共享金鑰，需與 Backstation 的 NUXT_INTERNAL_API_KEY 一致
-    backstationApiKey: process.env.BACKSTATION_API_KEY,
+    backstationApiKey: process.env.BACKSTATION_API_KEY || '',
 
     // Public (會暴露到客戶端)
     public: {
-      liffId: process.env.NUXT_PUBLIC_LIFF_ID,
+      liffId: process.env.NUXT_PUBLIC_LIFF_ID || '',
       appUrl: process.env.NUXT_PUBLIC_APP_URL || 'http://localhost:3000',
     },
   },

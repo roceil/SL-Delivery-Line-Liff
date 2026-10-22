@@ -1,0 +1,27 @@
+# 測試機（正式機是 fly.prod.toml）。故意不叫 fly.toml：fly 指令找不到預設檔就會報錯，
+# 不會默默部署到某一台，手動操作要加 -c fly.dev.toml 或 -a sl-delivery-line-liff-dev。
+app = "sl-delivery-line-liff-dev"
+primary_region = "nrt"
+
+# 不是機密，只是告訴 start.sh 用 Doppler 的哪個機器帳號、去哪個專案和環境拿變數
+[env]
+  DOPPLER_IDENTITY_ID = "99d93e62-aff1-4f4d-b043-cd672c6ff49e" # fly-sl-delivery-line-liff-dev
+  DOPPLER_PROJECT = "sl-delivery-line-liff"
+  DOPPLER_CONFIG = "dev"
+  # Fly 的機器預設是 UTC。伺服器先畫的頁面如果跟時間有關（例如「早安／午安」），
+  # 不設的話客人會先看到錯的時段，等瀏覽器載入後才被更正
+  TZ = "Asia/Taipei"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
